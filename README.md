@@ -1,1 +1,1 @@
-# trichat
+# trichat - Chat Application
