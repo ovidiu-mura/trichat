@@ -26,3 +26,17 @@ Message:
 
 
 Client Structure:
+
+Connected Clients:
+client1
+client2
+client3
+
+client1@client3: Test message1
+recvd msg from client3: Test message2
+client1@client2: Test message3
+
+client2 logged out
+
+new client4 joined chat
+~                          
