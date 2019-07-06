@@ -16,3 +16,13 @@ Project Requirements - https://web.cecs.pdx.edu/~markem/ALSP/project-description
 - server validates the uniqness of eache client id
 - multi-threading (Alex)
 - arguments validation server/client (Kamakshi)
+
+Message:
+- id sender/receiver
+- buffer 
+- timestamp (sent time)
+- destroy message if fails to be sent
+- write all the message to a file (client mainain a file with all received messages of each session)
+
+
+Client Structure:
