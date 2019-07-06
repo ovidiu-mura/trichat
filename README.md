@@ -40,3 +40,22 @@ client2 logged out
 
 new client4 joined chat
 ~                          
+
+Client attributes:
+- unique client id
+- get users
+
+Server attributes:
+- one sending message queue
+- one receiving message queue
+- algorithm sending the packets with msg (FIFO)
+- sleep all the threads
+- all the active users
+
+Packeges:
+- size 1K
+- file transfer
+- packet number
+- client id (sender/receiver)
+- packege will have the receiver id (string:name)
+
