@@ -74,3 +74,6 @@ Client
 Server
 - port (long int)
 
+
+Later:
+- IO: write to console, write to log files
