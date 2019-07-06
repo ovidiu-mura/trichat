@@ -64,3 +64,13 @@ Memory Management:
 - everytime a client sends a message client allocates new memory
 - memory is freed after the message is received by the client
 - server queue the message in a new allocated memory, it stores in the queue and after the message is received by the receiver client, the memory will be destroied (freed)
+
+Arguments:
+Client
+- username
+- ip (ipv4)
+- port (long int)
+
+Server
+- port (long int)
+
