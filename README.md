@@ -44,6 +44,7 @@ new client4 joined chat
 Client attributes:
 - unique client id
 - get users
+- client waits for the server response and prints for every message sent, "sent"
 
 Server attributes:
 - one sending message queue
@@ -59,3 +60,7 @@ Packeges:
 - client id (sender/receiver)
 - packege will have the receiver id (string:name)
 
+Memory Management:
+- everytime a client sends a message client allocates new memory
+- memory is freed after the message is received by the client
+- server queue the message in a new allocated memory, it stores in the queue and after the message is received by the receiver client, the memory will be destroied (freed)
