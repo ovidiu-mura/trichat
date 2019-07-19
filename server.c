@@ -48,6 +48,8 @@ int main(int argc, char **argv)
 
   printf("server: response sent\n");
 
+//  if(close(sockfd) != 0)
+//    fprintf(stderr, "failed to close the server socket\n");
 
   return 0;
 }
