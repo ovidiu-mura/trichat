@@ -21,15 +21,20 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <error.h>
-#include <sys/acct.h>
+#include <sys/resource.h>
+
 
 int count(char **d); // count the used indexes
+
 
 char *tokens[1024]; // store tokens from command line
 char *dirs[1024]; // store all the directories parsed from PATH environment variable
 char **args;
 pid_t pid;
 int status;
+struct rusage usage;
+
+
 
 // It parses the input from the command line and split in tokens separated by spaces.
 // It returns a two dimensional array of chars conaining the tokens.
@@ -163,7 +168,7 @@ int _run(char *cmd)
       write(STDOUT_FILENO, strerror(errno), 13);
       _exit(EXIT_FAILURE);
     }
-    if((pid = waitpid(pid, &status, 0)) < 0)
+    if((pid = wait3(&status, 0, &usage)) < 0)
     {
       write(STDERR_FILENO, "waitpid error", 13);
       write(STDOUT_FILENO, strerror(errno), 13);
@@ -176,7 +181,6 @@ int _run(char *cmd)
 
 int main(void)
 { 
-  struct acct dacct;
   char*path = getenv("PATH");
   char **a = get_path_dirs(path);
   char *cmd;
@@ -184,8 +188,7 @@ int main(void)
   long MAX = sysconf(_SC_LINE_MAX);
   char buf[MAX];
   char *const argv[] = {"exit",(char*)NULL};
-  if(acct("acct_data") != 0)
-    fprintf(stderr, "%s\n", strerror(errno));
+
   do {
     write(STDOUT_FILENO,"%%",2);
     fflush(STDIN_FILENO);
@@ -220,6 +223,7 @@ int main(void)
     buf[strlen(buf)-1] = 0; // chomp '\n'
     args[0] = tmp;
     _run(args[0]);
+    printf("user time: %ld\n", usage.ru_utime.tv_usec);
   } while(1);
   free_space(); // free the memory allocated
   exit(EXIT_SUCCESS);
