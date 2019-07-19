@@ -1,5 +1,5 @@
-// Student: Ovidiu Mura
-// Date: 06/27/19
+// Students: Alex Davidoff, Kamakshi Nayak, Ovidiu Mura
+// Date: 07/19/19
 // 
 // simple shell
 // This program takes whatever is input and executes it as a single command.
@@ -183,10 +183,7 @@ int main(void)
   char tmp[1024];
   long MAX = sysconf(_SC_LINE_MAX);
   char buf[MAX];
-//  pid_t pid;
-//  int status;
   char *const argv[] = {"exit",(char*)NULL};
-//  char ** args;
   if(acct("acct_data") != 0)
     fprintf(stderr, "%s\n", strerror(errno));
   do {
@@ -195,7 +192,6 @@ int main(void)
     int n = 0;
     memset(buf, 0, MAX);
     n = read(STDIN_FILENO, buf,MAX);
-//    _run(buf);
     if(n > 0 && buf[0] == 'e' && buf[1] == 'x' && buf[2] == 'i' && buf[3] == 't')
     {
       _run(buf);
@@ -224,21 +220,6 @@ int main(void)
     buf[strlen(buf)-1] = 0; // chomp '\n'
     args[0] = tmp;
     _run(args[0]);
-/*    pid = Fork();
-    if (pid == 0) {  // child
-      args[0] = tmp;
-      execv(args[0], args);
-      write(STDERR_FILENO, "exec failure", 12);
-      write(STDOUT_FILENO, strerror(errno), 13);
-      exit(EXIT_FAILURE);
-    }
-    // parent
-    if ((pid = waitpid(pid, &status, 0)) < 0)
-    {
-      write(STDERR_FILENO, "waitpid error", 13);
-      write(STDOUT_FILENO, strerror(errno), 13);
-      exit(EXIT_FAILURE);
-    }*/
   } while(1);
   free_space(); // free the memory allocated
   exit(EXIT_SUCCESS);
