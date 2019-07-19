@@ -35,7 +35,6 @@ int status;
 struct rusage usage;
 
 
-
 // It parses the input from the command line and split in tokens separated by spaces.
 // It returns a two dimensional array of chars conaining the tokens.
 // cmd - the input command line to be split in tokens
@@ -154,12 +153,25 @@ void _exit(int i)
   exit(i);
 }
 
+int _setuid(int i)
+{
+  if(setuid(i) < 0)
+    return -1;
+  return 0;
+}
 
 int _run(char *cmd)
-{
+{ printf("%s\n", cmd);
   if(strncmp(cmd, "exit",4)==0)
   {
     _exit(EXIT_SUCCESS);
+  } else if(strncmp(cmd, "_setuid", 7) == 0) {
+	  if(count(args) == 2)
+	  {
+	    printf("_setuid: %d\n", atoi(args[1]));
+            return _setuid(atoi(args[1]));
+	  } else
+		  printf("_setuid arguments: %d\n", count(args));
   } else {
     pid = Fork();
     if(pid == 0) {
@@ -168,16 +180,9 @@ int _run(char *cmd)
       write(STDOUT_FILENO, strerror(errno), 13);
       _exit(EXIT_FAILURE);
     }
-    if((pid = wait3(&status, 0, &usage)) < 0)
-    {
-      write(STDERR_FILENO, "waitpid error", 13);
-      write(STDOUT_FILENO, strerror(errno), 13);
-      _exit(EXIT_FAILURE);
-    }
   }
-  return 0;
+  return -1;
 }
-
 
 int main(void)
 { 
@@ -215,14 +220,26 @@ int main(void)
     if(n <0)
       break;
     cmd = find_cmd_path();
-    if(cmd==NULL)
+    if(cmd==NULL && args[0][0] == '_')
+      _run(args[0]);
+    else if(cmd==NULL)
       continue;
-    strcpy(tmp,cmd);
-    if(strchr(args[0],'/')==NULL)
-      strcat(strcat(tmp,"/"),args[0]);
-    buf[strlen(buf)-1] = 0; // chomp '\n'
-    args[0] = tmp;
-    _run(args[0]);
+    else {
+      strcpy(tmp,cmd);
+      if(strchr(args[0],'/')==NULL)
+        strcat(strcat(tmp,"/"),args[0]);
+      buf[strlen(buf)-1] = 0; // chomp '\n'
+      args[0] = tmp;
+      _run(args[0]);
+    }
+    if((pid = wait3(&status, 0, &usage)) < 0)
+    {
+      write(STDERR_FILENO, "waitpid error", 13);
+      write(STDOUT_FILENO, strerror(errno), 13);
+      _exit(EXIT_FAILURE);
+    }
+
+
     printf("user time: %ld\n", usage.ru_utime.tv_usec);
   } while(1);
   free_space(); // free the memory allocated
