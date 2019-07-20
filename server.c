@@ -44,7 +44,7 @@ int main(int argc, char **argv)
   char *response = "response from server";
   char *send = malloc(100);
   strcpy(send, response);
-  sendto(sockfd,send,1024,0,(const struct sockaddr *)&cliaddr,sizeof(cliaddr));
+  sendto(sockfd,send,1024,MSG_PEEK|MSG_TRUNC,(const struct sockaddr *)&cliaddr,sizeof(cliaddr));
 
   printf("server: response sent\n");
 
