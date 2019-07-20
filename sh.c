@@ -1,17 +1,12 @@
 // Students: Alex Davidoff, Kamakshi Nayak, Ovidiu Mura
 // Date: 07/19/19
 // 
-// simple shell
-// This program takes whatever is input and executes it as a single command.
-// This is problematic. While "ls" works, try "ls -FC" or "ls "
-// Based on APUE3e p. 12
-// 1. Remove fgets and replace with read.
-// 2. Remove printf and replace with write.
-// 3. Remove call to error() and replace with write, strerror, and exit.
-// 4. If commnand path is not specified, then use the PATH environment variable
-//    to find the command.
-// 5. Add "exit" command to leave the shell
-// 6. Replace execlp with execv.
+// Shell 2
+// Control-D
+// Exit
+// builtin funtions: _setuid, _getuid todo: setgid, getgid
+// Simple Pipe
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -33,6 +28,26 @@ char **args;
 pid_t pid;
 int status;
 struct rusage usage;
+
+int fd[2]; // two descriptor for simple pipe
+
+
+// it represents a cmd
+struct cmd {
+  char *args[20];
+  char name[20];
+};
+
+
+// it represents a pipe
+struct pipe {
+  struct cmd* left;
+  struct cmd* right;
+};
+
+
+struct pipe p;
+
 
 
 // It parses the input from the command line and split in tokens separated by spaces.
@@ -153,6 +168,14 @@ void _exit(int i)
   exit(i);
 }
 
+int _getuid()
+{
+  printf("%d\n", getuid());
+  return 0;
+}
+
+
+
 int _setuid(int i)
 {
   if(setuid(i) < 0)
@@ -161,7 +184,7 @@ int _setuid(int i)
 }
 
 int _run(char *cmd)
-{ printf("%s\n", cmd);
+{ 
   if(strncmp(cmd, "exit",4)==0)
   {
     _exit(EXIT_SUCCESS);
@@ -172,7 +195,12 @@ int _run(char *cmd)
             return _setuid(atoi(args[1]));
 	  } else
 		  printf("_setuid arguments: %d\n", count(args));
-  } else {
+  } else if(strncmp(cmd, "_getuid", 7) == 0){ 
+    if(count(args) == 1){
+      return _getuid();
+    }
+  } else
+  {
     pid = Fork();
     if(pid == 0) {
       execv(args[0], args);
@@ -184,6 +212,53 @@ int _run(char *cmd)
   return -1;
 }
 
+
+// It checks in the as if there is a pipe
+// Returns 1 if there is a pipe, 0 otherwise
+int isPipe(char **as)
+{
+  int cnt = count(as);
+  for(int i=0; i<cnt; i++)
+  {
+    if(strstr(as[i], "|") != NULL)
+      return 1;
+  }
+  return 0;
+}
+
+
+void build_pipe(char **as)
+{
+  int cnt = 0;
+  int fr = 0;
+  if(isPipe(args)){
+    p.left = malloc(sizeof(struct cmd));
+    p.right = malloc(sizeof(struct cmd));
+    for (int i=0; i< count(args); i++)
+    {
+      if(strstr(args[i],"|") != NULL) {
+        cnt += 1;
+	fr += 1;
+      } else {
+        if(cnt == 0) {
+          if(i == 0)
+            strncpy(p.left->name, args[i], strlen(args[i]));
+          p.left->args[i] = malloc(sizeof(args[i]));
+          strncpy(p.left->args[i], args[i], strlen(args[i]));
+          printf("left: %s\n", args[i]);
+        } else if(cnt == 1) {
+          if(fr == 1)
+            strncpy(p.right->name, args[i], strlen(args[i]));
+          p.right->args[i] = malloc(sizeof(args[i]));
+          strncpy(p.right->args[i], args[i], strlen(args[i]));
+	  printf("right: %s\n", args[i]);
+        }
+      }
+    }
+  }
+}
+
+
 int main(void)
 { 
   char*path = getenv("PATH");
@@ -193,7 +268,6 @@ int main(void)
   long MAX = sysconf(_SC_LINE_MAX);
   char buf[MAX];
   char *const argv[] = {"exit",(char*)NULL};
-
   do {
     write(STDOUT_FILENO,"%%",2);
     fflush(STDIN_FILENO);
@@ -206,23 +280,44 @@ int main(void)
     }
     if (n == 0) // Control-D: only EOF is placed in stdin
     {
-      write(STDOUT_FILENO, "\n",2);
+      write(STDOUT_FILENO, "Enter 'exit' to leave the shell\n",33);
       fflush(STDIN_FILENO);
-      return 0;
+      continue;
     } 
     else if((buf[n-1] > 31) && (buf[n-1] < 127)) // Control-D: EOF is placed in stdin after one or more ASCII characters
     {
-      write(STDOUT_FILENO,"\n",2);
+      write(STDOUT_FILENO,"\nEnter 'exit' to leave the shell\n",34);
       fflush(STDIN_FILENO);
-      return 0;
+      continue;
     }
     args = parse_cmd(buf);
+
+    build_pipe(args);
+
+    fd[0] = 
+
+    pid = Fork();
+    if (pid == 0)
+    {
+      if(dup2(fd[0], STDOUT_FILENO)<0) {
+	      perror("dup2 error at read of pipe\n");
+	      _exit();
+      }
+      write();
+       
+    }
+
     if(n <0)
       break;
     cmd = find_cmd_path();
-    if(cmd==NULL && args[0][0] == '_')
-      _run(args[0]);
-    else if(cmd==NULL)
+    if(cmd==NULL && args[0][0] == '_'){
+
+      int pid = Fork();
+      int ret = 0;
+      if(pid == 0){
+        ret = _run(args[0]);
+      }
+    } else if(cmd==NULL)
       continue;
     else {
       strcpy(tmp,cmd);
@@ -231,15 +326,14 @@ int main(void)
       buf[strlen(buf)-1] = 0; // chomp '\n'
       args[0] = tmp;
       _run(args[0]);
+      int pid = wait3(&status, 0, &usage);
+      if(pid<0)
+      {
+        write(STDERR_FILENO, "waitpid error", 13);
+        write(STDOUT_FILENO, strerror(errno), 13);
+        _exit(EXIT_FAILURE);
+      }
     }
-    if((pid = wait3(&status, 0, &usage)) < 0)
-    {
-      write(STDERR_FILENO, "waitpid error", 13);
-      write(STDOUT_FILENO, strerror(errno), 13);
-      _exit(EXIT_FAILURE);
-    }
-
-
     printf("user time: %ld\n", usage.ru_utime.tv_usec);
   } while(1);
   free_space(); // free the memory allocated

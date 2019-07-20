@@ -20,7 +20,7 @@ int main(int argc, char **argv)
   // Filling server information
   servaddr.sin_family = AF_INET;
   servaddr.sin_port = htons(PORT);
-  inet_pton(AF_INET, "131.252.208.103", &servaddr.sin_addr.s_addr);
+  inet_pton(AF_INET, "131.252.217.212", &servaddr.sin_addr.s_addr);
 
   // send data to server
   char *data = "hellofromclient";
