@@ -1,9 +1,9 @@
 // Students: Alex Davidoff, Kamakshi Nayak, Ovidiu Mura
 // Date: 07/19/19
 // 
-// Shell 2
-// Control-D
-// Exit
+// Program Shell 2
+// Control-D: display exit mmessage
+// Exit built-in
 // builtin funtions: _setuid, _getuid todo: setgid, getgid
 // Simple Pipe
 
@@ -17,22 +17,21 @@
 #include <unistd.h>
 #include <error.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 
 
 int count(char **d); // count the used indexes
-
+void print_usage(int, int, struct rusage); // print pid usage stats
 
 char *tokens[1024]; // store tokens from command line
 char *dirs[1024]; // store all the directories parsed from PATH environment variable
-char **args;
-pid_t pid;
-int status;
-struct rusage usage;
-int isP = 0;
-
+char **args; // command line arguments
+pid_t pid; // current child id
+int status; // current child status
+struct rusage usage; // stats about the current child
+int isP = 0; // checks if the command line has a pipe
 
 int fds[2]; // two descriptor for simple pipe
-
 
 // it represents a cmd
 struct cmd {
@@ -106,6 +105,8 @@ void free_space()
   }
 }
 
+
+// It implements a rapper of the fork() linux function
 static int
 Fork()
 {
@@ -117,7 +118,6 @@ Fork()
     write(STDOUT_FILENO, strerror(errno), 10);
     exit(EXIT_FAILURE);
   }
-
   return(pid);
 }
 
@@ -161,6 +161,11 @@ char * find_cmd_path()
     return tokens[0];
 }
 
+// It searches the existing path on every environment dir
+// If there if the 'cmd' if found in any of the dir,
+// the path is returned
+// cmd - the name of the command to be serached in the environment dirs
+// Returns the found path or NULL otherwise.
 char * find_cpath(char *cmd)
 {
   char temp[100];
@@ -178,9 +183,6 @@ char * find_cpath(char *cmd)
   return (char*)NULL;
 }
 
-
-
-
 // built-in _exit function
 // i - exit code
 void _exit(int i)
@@ -188,12 +190,17 @@ void _exit(int i)
   exit(i);
 }
 
+
+// built-in _getuid function, wrapper of the getuid linux function
 int _getuid()
 {
   printf("%d\n", getuid());
   return 0;
 }
 
+// built-in _setuid function, wrapper of the setuid linux function
+// i - the user id to be set
+// returns 0 on success, -1 otherwise
 int _setuid(int i)
 {
   if(setuid(i) < 0)
@@ -201,6 +208,9 @@ int _setuid(int i)
   return 0;
 }
 
+// built-in funtion, runs setgid of linux function
+// i - the user id to be set
+// 0 on success, -1 otherwise
 int _setgid(int i)
 {
   if(setgid(i) < 0)
@@ -208,12 +218,17 @@ int _setgid(int i)
   return 0;
 }
 
+// built-in function, runs getgid of linux function
+// it prints the current process group id
 int _getgid()
 {
   printf("%d\n", getgid());
   return 0;
 }
 
+// It runs the built-in functions
+// Returns -1 on error, command result on success
+// cmd - the name of the built-in command to be run
 int _run(char *cmd)
 { 
   if(strncmp(cmd, "exit",4)==0)
@@ -235,6 +250,10 @@ int _run(char *cmd)
     {
       printf("_setgid: %d\n", atoi(args[1]));
       return _setgid(atoi(args[1]));
+    }
+  } else if(strncmp(cmd, "_getgid", 7) == 0) {
+    if(count(args) == 1) {
+      return _getgid();
     }
   } else {
     pid = Fork();
@@ -261,7 +280,9 @@ int isPipe(char **as)
   return 0;
 }
 
-
+// It parses the list of the command line arguments and 
+// if there is a pipe, it builds the pipe commands structure with the parameters
+// as - list of the command line arguments
 void build_pipe(char **as)
 {
   int cnt = 0;
@@ -302,7 +323,10 @@ void build_pipe(char **as)
   }
 }
 
-
+// It executes a one pipe, then prints the result in the stdout
+// as - the list of all command line arguments
+// pth - the absolute path of the first command
+// Returns 0 on success, exits with -1 otherwise
 int exec_pipe(char **as, char *pth)
 {   
     char temp[100];
@@ -340,15 +364,45 @@ int exec_pipe(char **as, char *pth)
       perror("error executing right pipe command");
       _exit(-1);
     }
-    if(wait3(&status, 0, &usage)<0)
+    if((pid=wait3(&status, 0, &usage))<0)
     {
       perror("wait3 error right pipe command");
     }
+    print_usage(pid, status, usage);
     return 0;
 }
 
+// It prints all the stats of the child process
+// pi - process id the stats to be printed
+// st - status of the child process
+// rusage - rusage structure which contains all the stats of the process
+void print_usage(int pi, int st, struct rusage rusage)
+{
+  printf("\n\n\nUsage information for pid %d\n", (int)pid);
+  printf("status = %d\n", WEXITSTATUS(status));
+  printf("User: %ld.%0ld\n", rusage.ru_utime.tv_sec, rusage.ru_utime.tv_usec);
+  printf("Sys:  %ld.%0ld\n", rusage.ru_stime.tv_sec, rusage.ru_stime.tv_usec);
+  printf("Max resident set size:  %ld\n", rusage.ru_maxrss);
+  printf("Shared memory size:  %ld\n", rusage.ru_ixrss);
+  printf("Unshared data size:  %ld\n", rusage.ru_idrss);
+  printf("Unshared stack size:  %ld\n", rusage.ru_isrss);
+  printf("Soft page faults:  %ld\n", rusage.ru_minflt);
+  printf("Hard page faults:  %ld\n", rusage.ru_majflt);
+  printf("Swaps:  %ld\n", rusage.ru_nswap);
+  printf("Block input ops:  %ld\n", rusage.ru_inblock);
+  printf("Block output ops:  %ld\n", rusage.ru_oublock);
+  printf("IPC messages sent:  %ld\n", rusage.ru_msgsnd);
+  printf("IPC messages received:  %ld\n", rusage.ru_msgrcv);
+  printf("Signals received:  %ld\n", rusage.ru_nsignals);
+  printf("Voluntary context switches:  %ld\n", rusage.ru_nvcsw);
+  printf("Involuntary context switches:  %ld\n", rusage.ru_nivcsw);
+  exit (EXIT_SUCCESS);
+}
 
-
+// It controls the execution of the program using a loop
+// It reads the command line arguments and calls the properly functions 
+// to execute accordingly.
+// Returns 0 on success, exit with -1 on failure
 int main(void)
 { 
   char*path = getenv("PATH");
@@ -398,6 +452,9 @@ int main(void)
       if(pid == 0){
         ret = _run(args[0]);
       }
+      pid = wait3(&status, 0, &usage);
+      print_usage(pid, status, usage);
+      continue;
     } else if(cmd_path==NULL)
       continue;
     else {
@@ -414,7 +471,8 @@ int main(void)
         _exit(EXIT_FAILURE);
       }
     }
-    printf("user time: %ld\n", usage.ru_utime.tv_usec);
+    print_usage(pid, status, usage);
+    //    printf("user time: %ld\n", usage.ru_utime.tv_usec);
   } while(1);
   free_space(); // free the memory allocated
   exit(EXIT_SUCCESS);
