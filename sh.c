@@ -35,7 +35,7 @@ int fds[2]; // two descriptor for simple pipe
 // it represents a cmd
 struct cmd {
   char *args[20];
-  char name[20];
+  char *name;
 };
 
 
@@ -47,8 +47,6 @@ struct pipe {
 
 
 struct pipe p;
-
-
 
 // It parses the input from the command line and split in tokens separated by spaces.
 // It returns a two dimensional array of chars conaining the tokens.
@@ -231,9 +229,13 @@ void build_pipe(char **as)
 {
   int cnt = 0;
   int fr = 0;
+  int lidx=0;
+  int ridx=0;
   if(isPipe(args)){
     p.left = malloc(sizeof(struct cmd));
+    p.left->name = malloc(sizeof(char)*10);
     p.right = malloc(sizeof(struct cmd));
+    p.right->name = malloc(sizeof(char)*10);
     for (int i=0; i< count(args); i++)
     {
       if(strstr(args[i],"|") != NULL) {
@@ -245,13 +247,17 @@ void build_pipe(char **as)
             strncpy(p.left->name, args[i], strlen(args[i]));
           p.left->args[i] = malloc(sizeof(args[i]));
           strncpy(p.left->args[i], args[i], strlen(args[i]));
-          printf("left: %s\n", args[i]);
+	  lidx = i+1;
+	  p.left->args[lidx] = NULL;
         } else if(cnt == 1) {
-          if(fr == 1)
+	  ridx += 1;
+          if(fr == 1){
             strncpy(p.right->name, args[i], strlen(args[i]));
-          p.right->args[i] = malloc(sizeof(args[i]));
-          strncpy(p.right->args[i], args[i], strlen(args[i]));
-	  printf("right: %s\n", args[i]);
+	    fr += 1;
+	  }
+          p.right->args[i-(lidx+1)] = malloc(sizeof(args[i]));
+          strncpy(p.right->args[i-(lidx+1)], args[i], strlen(args[i]));
+	  p.right->args[ridx] = NULL;
         }
       }
     }
@@ -259,15 +265,14 @@ void build_pipe(char **as)
 }
 
 
-int exec_pipe()
-{
-    char pbuf[20];
+int exec_pipe(char **as, char *pth)
+{   
+    char temp[100];
     if(pipe(fds) == -1)
     {
       perror("pipe fds failed");
       _exit(-1);
     }
-
     pid = Fork();
 
     if (pid == 0)
@@ -278,24 +283,26 @@ int exec_pipe()
       }
       close(fds[0]);
       close(fds[1]);
-      execlp("/bin/ps", "/bin/ps", "aux", NULL);
+      strcpy(temp, pth);
+      strcat(temp, "/");
+      strcat(temp, p.left->name);
+      execv(temp, p.left->args);
       perror("bad exec ps");
-      //write(fds[1], "hello there\n", 12);
       _exit(-1);
     } 
-    
     pid = Fork();
-    
     if(pid == 0) {
       dup2(fds[0], 0);
       close(fds[0]);
       close(fds[1]);
-      execlp("/bin/grep", "/bin/grep", "root", NULL);
-      perror("error executing grep root");
+      strcpy(temp, pth);
+      strcat(temp, "/");
+      strcat(temp, p.right->name);
+      execv(temp, p.right->args);
+      perror("error executing right pipe command");
       _exit(-1);
-//      int nbytes = read(fds[0], pbuf, 20);
-//      printf("received string: %s\n", pbuf);
     }
+    wait(NULL);
     return 0;
 }
 
@@ -305,7 +312,7 @@ int main(void)
 { 
   char*path = getenv("PATH");
   char **a = get_path_dirs(path);
-  char *cmd;
+  char *cmd_path;
   char tmp[1024];
   long MAX = sysconf(_SC_LINE_MAX);
   char buf[MAX];
@@ -333,26 +340,26 @@ int main(void)
       continue;
     }
     args = parse_cmd(buf);
-
+    cmd_path = find_cmd_path();
     build_pipe(args);
-
-    exec_pipe();
+   
+    exec_pipe(args, cmd_path);
     return 0;
 
     if(n <0)
       break;
-    cmd = find_cmd_path();
-    if(cmd==NULL && args[0][0] == '_'){
+    cmd_path = find_cmd_path();
+    if(cmd_path==NULL && args[0][0] == '_'){
 
       int pid = Fork();
       int ret = 0;
       if(pid == 0){
         ret = _run(args[0]);
       }
-    } else if(cmd==NULL)
+    } else if(cmd_path==NULL)
       continue;
     else {
-      strcpy(tmp,cmd);
+      strcpy(tmp,cmd_path);
       if(strchr(args[0],'/')==NULL)
         strcat(strcat(tmp,"/"),args[0]);
       buf[strlen(buf)-1] = 0; // chomp '\n'
