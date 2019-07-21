@@ -29,7 +29,7 @@ pid_t pid;
 int status;
 struct rusage usage;
 
-int fd[2]; // two descriptor for simple pipe
+int fds[2]; // two descriptor for simple pipe
 
 
 // it represents a cmd
@@ -259,6 +259,48 @@ void build_pipe(char **as)
 }
 
 
+int exec_pipe()
+{
+    char pbuf[20];
+    if(pipe(fds) == -1)
+    {
+      perror("pipe fds failed");
+      _exit(-1);
+    }
+
+    pid = Fork();
+
+    if (pid == 0)
+    {
+      if(dup2(fds[1], 1)<0) {
+              perror("dup2 error at read of pipe\n");
+              _exit(0);
+      }
+      close(fds[0]);
+      close(fds[1]);
+      execlp("/bin/ps", "/bin/ps", "aux", NULL);
+      perror("bad exec ps");
+      //write(fds[1], "hello there\n", 12);
+      _exit(-1);
+    } 
+    
+    pid = Fork();
+    
+    if(pid == 0) {
+      dup2(fds[0], 0);
+      close(fds[0]);
+      close(fds[1]);
+      execlp("/bin/grep", "/bin/grep", "root", NULL);
+      perror("error executing grep root");
+      _exit(-1);
+//      int nbytes = read(fds[0], pbuf, 20);
+//      printf("received string: %s\n", pbuf);
+    }
+    return 0;
+}
+
+
+
 int main(void)
 { 
   char*path = getenv("PATH");
@@ -294,18 +336,8 @@ int main(void)
 
     build_pipe(args);
 
-    fd[0] = 
-
-    pid = Fork();
-    if (pid == 0)
-    {
-      if(dup2(fd[0], STDOUT_FILENO)<0) {
-	      perror("dup2 error at read of pipe\n");
-	      _exit();
-      }
-      write();
-       
-    }
+    exec_pipe();
+    return 0;
 
     if(n <0)
       break;
