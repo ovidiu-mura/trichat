@@ -28,6 +28,8 @@ char **args;
 pid_t pid;
 int status;
 struct rusage usage;
+int isP = 0;
+
 
 int fds[2]; // two descriptor for simple pipe
 
@@ -159,6 +161,26 @@ char * find_cmd_path()
     return tokens[0];
 }
 
+char * find_cpath(char *cmd)
+{
+  char temp[100];
+  int m = count(dirs);
+  int i = 0;
+  while(i<m)
+  {
+    strcpy(temp, dirs[i]);
+    strcat(temp, "/");
+    strcat(temp, cmd);
+    if(access(temp, F_OK)==0)
+      return dirs[i];
+    i++;
+  }
+  return (char*)NULL;
+}
+
+
+
+
 // built-in _exit function
 // i - exit code
 void _exit(int i)
@@ -172,12 +194,23 @@ int _getuid()
   return 0;
 }
 
-
-
 int _setuid(int i)
 {
   if(setuid(i) < 0)
     return -1;
+  return 0;
+}
+
+int _setgid(int i)
+{
+  if(setgid(i) < 0)
+    return -1;
+  return 0;
+}
+
+int _getgid()
+{
+  printf("%d\n", getgid());
   return 0;
 }
 
@@ -187,23 +220,27 @@ int _run(char *cmd)
   {
     _exit(EXIT_SUCCESS);
   } else if(strncmp(cmd, "_setuid", 7) == 0) {
-	  if(count(args) == 2)
-	  {
-	    printf("_setuid: %d\n", atoi(args[1]));
-            return _setuid(atoi(args[1]));
-	  } else
-		  printf("_setuid arguments: %d\n", count(args));
-  } else if(strncmp(cmd, "_getuid", 7) == 0){ 
+    if(count(args) == 2)
+    {
+      printf("_setuid: %d\n", atoi(args[1]));
+      return _setuid(atoi(args[1]));
+    } else
+      printf("_setuid arguments: %d\n", count(args));
+  } else if(strncmp(cmd, "_getuid", 7) == 0){
     if(count(args) == 1){
       return _getuid();
     }
-  } else
-  {
+  } else if(strncmp(cmd, "_setgid", 7) == 0){
+    if(count(args)==2)
+    {
+      printf("_setgid: %d\n", atoi(args[1]));
+      return _setgid(atoi(args[1]));
+    }
+  } else {
     pid = Fork();
     if(pid == 0) {
       execv(args[0], args);
-      write(STDERR_FILENO, "exec failure", 12);
-      write(STDOUT_FILENO, strerror(errno), 13);
+      fprintf (stderr, "\n%s: exec failure\n", strerror (errno));
       _exit(EXIT_FAILURE);
     }
   }
@@ -232,6 +269,7 @@ void build_pipe(char **as)
   int lidx=0;
   int ridx=0;
   if(isPipe(args)){
+    isP = 1;
     p.left = malloc(sizeof(struct cmd));
     p.left->name = malloc(sizeof(char)*10);
     p.right = malloc(sizeof(struct cmd));
@@ -274,12 +312,11 @@ int exec_pipe(char **as, char *pth)
       _exit(-1);
     }
     pid = Fork();
-
     if (pid == 0)
     {
       if(dup2(fds[1], 1)<0) {
-              perror("dup2 error at read of pipe\n");
-              _exit(0);
+              perror("dup2 error at read of pipe");
+              _exit(-1);
       }
       close(fds[0]);
       close(fds[1]);
@@ -287,22 +324,26 @@ int exec_pipe(char **as, char *pth)
       strcat(temp, "/");
       strcat(temp, p.left->name);
       execv(temp, p.left->args);
-      perror("bad exec ps");
+      perror("error executing left pipe command");
       _exit(-1);
     } 
     pid = Fork();
     if(pid == 0) {
+      char *pa = find_cpath(p.right->name);
       dup2(fds[0], 0);
       close(fds[0]);
       close(fds[1]);
-      strcpy(temp, pth);
+      strcpy(temp, pa);
       strcat(temp, "/");
       strcat(temp, p.right->name);
       execv(temp, p.right->args);
       perror("error executing right pipe command");
       _exit(-1);
     }
-    wait(NULL);
+    if(wait3(&status, 0, &usage)<0)
+    {
+      perror("wait3 error right pipe command");
+    }
     return 0;
 }
 
@@ -342,10 +383,11 @@ int main(void)
     args = parse_cmd(buf);
     cmd_path = find_cmd_path();
     build_pipe(args);
-   
-    exec_pipe(args, cmd_path);
-    return 0;
-
+    if(isP) {
+      exec_pipe(args, cmd_path);
+      isP = 0;
+      continue;
+    }
     if(n <0)
       break;
     cmd_path = find_cmd_path();
@@ -368,8 +410,7 @@ int main(void)
       int pid = wait3(&status, 0, &usage);
       if(pid<0)
       {
-        write(STDERR_FILENO, "waitpid error", 13);
-        write(STDOUT_FILENO, strerror(errno), 13);
+        fprintf (stderr, "%s: waitpid error\n",strerror (errno));
         _exit(EXIT_FAILURE);
       }
     }
