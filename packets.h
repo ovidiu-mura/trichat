@@ -36,3 +36,6 @@ struct cls_pkt
   char dst[100];
 };
 
+
+char * ser_data(void *, char);
+
