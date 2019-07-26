@@ -1,7 +1,5 @@
 
-
-enum ptype {DATA, ACK, INIT, CLS};
-
+enum ptype {INIT=1, ACK=2, DATA=3, CLS=4};
 
 struct data_pkt
 {
@@ -38,4 +36,5 @@ struct cls_pkt
 
 
 char * ser_data(void *, char);
+char * deser_data(void *);
 

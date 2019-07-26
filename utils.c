@@ -19,4 +19,17 @@ char * ser_data(void *pkt, char tp)
   return ser;
 }
 
-
+char * deser_data(void *pkt)
+{
+  char *deser;
+  char *tmp = (char*)pkt;
+  if(tmp[0]==INIT)
+  {
+    deser = malloc(sizeof(struct init_pkt));
+    memcpy(&((struct init_pkt*)deser)->type, &((struct init_pkt*)pkt)->type, sizeof(char));
+    memcpy(&((struct init_pkt*)deser)->id, &((struct init_pkt*)pkt)->id, sizeof(int));
+    memcpy(&((struct init_pkt*)deser)->src, &((struct init_pkt*)pkt)->src, sizeof(char)*100);
+    memcpy(&((struct init_pkt*)deser)->dst, &((struct init_pkt*)pkt)->dst, sizeof(char)*100);
+  }
+  return deser;
+}
