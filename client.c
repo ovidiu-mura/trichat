@@ -43,8 +43,6 @@ int main()
   strcpy(pkt_1.dst, "server");
 
   char *data = ser_data(&pkt_1, INIT);
-//  char temp[100];
-//  strcpy(temp, "test me");
   send(clientSocket, data, strlen(data), 0);
   while(1){
     printf("Client: \t");
