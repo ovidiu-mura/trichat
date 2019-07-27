@@ -1,18 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include "libs.h"
-
-
 #define PORT 4444
 
 char buffer[1024];
-
 
 int main()
 {
@@ -29,7 +18,7 @@ int main()
   memset(&serverAddr, '\0', sizeof(serverAddr));
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons(PORT);
-  serverAddr.sin_addr.s_addr = inet_addr("131.252.217.212");
+  serverAddr.sin_addr.s_addr = inet_addr("0.0.0.0");
 
   ret = connect(clientSocket, (struct sockaddr*)&serverAddr,sizeof(serverAddr));
   if(ret<0){
@@ -38,7 +27,7 @@ int main()
   }
   printf("[+]Connect to Server.\n");
 
-/*  struct init_pkt pkt_1;
+  struct init_pkt pkt_1;
   pkt_1.id = 5;
   pkt_1.type = INIT;
   strcpy(pkt_1.src, "client1");
@@ -46,7 +35,7 @@ int main()
   char *data = ser_data(&pkt_1, INIT);
   char *d1 = hide_zeros(data);
   
-  int n = send(clientSocket, d1, strlen(d1), 0);*/
+  int n = send(clientSocket, d1, strlen(d1), 0);
 
   struct data_pkt pkt_3;
   while(1){
