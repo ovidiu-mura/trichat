@@ -61,16 +61,15 @@ int main(){
     if((childpid = fork())==0){
       close(sockfd);
       while(1){
+	      printf("waiting for receive\n");
         int n = recv(newSocket, buffer, 1024, 0);
-	printf("bytes received %d\n", n);
+	printf("bytes received %d %c\n", n, buffer[0]);
 	memcpy(d, buffer, n);
 	d[n] = '\0';
 	char *u = unhide_zeros((unsigned char*)d);
-	for(int i=0; i<1024; i++)
-	{
-	  printf("%02x ", u[i]);
-	}
 //	p = deser_init_pkt(u);
+        if(n==0)
+		break;
         if(u[0] == 0x03)
 	{
 		struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
@@ -80,15 +79,22 @@ int main(){
 		printf("src: %s\n", pp->src);
 		printf("dst: %s\n", pp->dst);
 		printf("data: %s\n", pp->data);
-	} else
-	if(strcmp(buffer, ":exit") == 0){
-	  printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
-	  break;
-	} else {
-	  printf("Client: %s\n", buffer);
-	  send(newSocket, buffer, strlen(buffer), 0);
-	  bzero(buffer, sizeof(buffer));
-	}
+		if(strcmp(pp->data, ":exit")==0)
+		{
+		  printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+                  break;
+		}
+	} else if(strcmp(buffer, ":exit") == 0){
+	    printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+	    break;
+	} 
+	
+//	printf("Client: %s\n", buffer);
+	strcpy(buffer, "todo: send ack packet");
+	buffer[21] = '\0';
+	printf("Client: %s\n", buffer);
+	send(newSocket, buffer, strlen(buffer), 0);
+	bzero(buffer, sizeof(buffer));
       }
     }
   }

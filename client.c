@@ -51,7 +51,6 @@ int main()
   struct data_pkt pkt_3;
   while(1){
     printf("Client: \t");
-//    scanf("%s", buffer);
     read(STDIN_FILENO, buffer, 1024);
     int i = 0;
     while(buffer[i] != '\n')
