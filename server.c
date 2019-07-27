@@ -34,8 +34,34 @@ int main(){
   char buffer[1024];
   pid_t childpid;
 
+<<<<<<< HEAD
 		signal(SIGINT,INThandler);
     startup(&connection,4444);
+=======
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if(sockfd < 0){
+    printf("[-]Error in connection\n");
+    exit(1);
+  }
+  printf("[+]Server Socket is created.\n");
+
+  memset(&serverAddr, '\0', sizeof(serverAddr));
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_port = htons(PORT);
+  serverAddr.sin_addr.s_addr = inet_addr("131.252.217.212");
+
+  ret = bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+  if(ret<0){
+    printf("[-]Error in binding.\n");
+    exit(1);
+  }
+  printf("[+]Bind to port %d\n", 4444);
+  if(listen(sockfd, 10)==0){
+    printf("[+]Listening...\n");
+  }else{
+    printf("[-]Error in binding.\n");
+  }
+>>>>>>> 799bce22e23726e48c3b96c8e5e0baafffb07262
 
   while(1){
     newSocket = accept(connection.sockfd, (struct sockaddr*)&newAddr, &addr_size);
@@ -66,7 +92,7 @@ int main(){
 		printf("src: %s\n", pp->src);
 		printf("dst: %s\n", pp->dst);
 		printf("data: %s\n", pp->data);
-	}
+	} else
 	if(strcmp(buffer, ":exit") == 0){
 	  printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
 	  break;
