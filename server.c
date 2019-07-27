@@ -66,7 +66,21 @@ int main(){
 	memcpy(d, buffer, n);
 	d[n] = '\0';
 	char *u = unhide_zeros((unsigned char*)d);
+	for(int i=0; i<1024; i++)
+	{
+	  printf("%02x ", u[i]);
+	}
 //	p = deser_init_pkt(u);
+        if(u[0] == 0x03)
+	{
+		struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
+		printf("DATA PACKET:!!!!!!!!!\n");
+		printf("type: %d\n", pp->type);
+		printf("id: %d\n", pp->id);
+		printf("src: %s\n", pp->src);
+		printf("dst: %s\n", pp->dst);
+		printf("data: %s\n", pp->data);
+	}
 	if(strcmp(buffer, ":exit") == 0){
 	  printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
 	  break;

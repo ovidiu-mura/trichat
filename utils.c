@@ -69,6 +69,17 @@ struct init_pkt* deser_init_pkt(char *ptr)
   return p;
 }
 
+struct data_pkt* deser_data_pkt(char *ptr)
+{
+  char *tmp = (char*)ptr;
+  struct data_pkt* p = malloc(sizeof(struct data_pkt));
+  memcpy(&((struct data_pkt*)p)->type, tmp, 1);
+  memcpy(&((struct data_pkt*)p)->id, tmp+1, 4);
+  memcpy(&((struct data_pkt*)p)->data, tmp+5, 467);
+  memcpy(&((struct data_pkt*)p)->src, tmp+472, 20);
+  memcpy(&((struct data_pkt*)p)->dst, tmp+492, 20);
+  return p;
+}
 
 char * deser_data(void *pkt)
 {
@@ -96,9 +107,9 @@ char * deser_data(void *pkt)
     deser = malloc(sizeof(struct data_pkt));
     memcpy(&((struct data_pkt*)deser)->type, &((struct data_pkt*)pkt)->type, sizeof(char));
     memcpy(&((struct data_pkt*)deser)->id, &((struct data_pkt*)pkt)->id, sizeof(int));
-    memcpy(&((struct data_pkt*)deser)->src, &((struct data_pkt*)pkt)->src, sizeof(char)*100);
-    memcpy(&((struct data_pkt*)deser)->dst, &((struct data_pkt*)pkt)->dst, sizeof(char)*100);
-    memcpy(&((struct data_pkt*)deser)->data, &((struct data_pkt*)pkt)->data, sizeof(char)*512);
+    memcpy(&((struct data_pkt*)deser)->src, &((struct data_pkt*)pkt)->src, sizeof(char)*20);
+    memcpy(&((struct data_pkt*)deser)->dst, &((struct data_pkt*)pkt)->dst, sizeof(char)*20);
+    memcpy(&((struct data_pkt*)deser)->data, &((struct data_pkt*)pkt)->data, sizeof(char)*467);
   }
   else if(tmp[0] == CLS)
   {

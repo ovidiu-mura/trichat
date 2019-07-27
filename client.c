@@ -11,11 +11,13 @@
 
 #define PORT 4444
 
+char buffer[1024];
+
+
 int main()
 {
   int clientSocket, ret;
   struct sockaddr_in serverAddr;
-  char buffer[1024];
 
   clientSocket = socket(AF_INET, SOCK_STREAM, 0);
   if(clientSocket < 0){
@@ -58,8 +60,16 @@ int main()
     }
     buffer[i] = '\0';
     printf("%s %d\n", buffer, i);
-//    exit(23);
-    send(clientSocket, buffer, strlen(buffer), 0);
+    pkt_3.type = DATA;
+    pkt_3.id = 35;
+    memcpy(&pkt_3.data, &buffer, 300);
+    strcpy(pkt_3.src, "client21");
+    strcpy(pkt_3.dst, ">>server**");
+    char *data = ser_data(&pkt_3, DATA);
+    char *serdat = hide_zeros(data);
+    //send(clientSocket, buffer, strlen(buffer), 0);
+    int no = send(clientSocket, serdat, strlen(serdat), 0);
+    printf("bytes sent %d\n", no);
     if(strcmp(buffer, ":exit")==0){
 	    close(clientSocket);
       printf("[-]Disconnected from server.\n");
