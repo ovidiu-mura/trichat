@@ -7,59 +7,45 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include<signal.h>
 #include "libs.h"
-
 
 #define PORT 4444
 
-struct sockaddr_in serverAddr;
+typedef struct connection_info
+{
+				int sockfd;
+				struct sockaddr_in serverAddr;
+				char username[20];
+}connection_info;
+
+//struct sockaddr_in serverAddr;
 struct sockaddr_in newAddr;
 //char buffer[1024];
 struct init_pkt *p;
+void INThandler(int);
+void startup(connection_info * connection,int port);
 
 int main(){
   unsigned char *d = malloc(1024);
-  
-  int sockfd, ret;
   int newSocket;
-
+  connection_info connection;
   socklen_t addr_size;
   char buffer[1024];
   pid_t childpid;
 
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if(sockfd < 0){
-    printf("[-]Error in connection\n");
-    exit(1);
-  }
-  printf("[+]Server Socket is created.\n");
-
-  memset(&serverAddr, '\0', sizeof(serverAddr));
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_port = htons(PORT);
-  serverAddr.sin_addr.s_addr = inet_addr("131.252.208.103");
-
-  ret = bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-  if(ret<0){
-    printf("[-]Error in binding.\n");
-    exit(1);
-  }
-  printf("[+]Bind to port %d\n", 4444);
-  if(listen(sockfd, 10)==0){
-    printf("[+]Listening...\n");
-  }else{
-    printf("[-]Error in binding.\n");
-  }
+		signal(SIGINT,INThandler);
+    startup(&connection,4444);
 
   while(1){
-    newSocket = accept(sockfd, (struct sockaddr*)&newAddr, &addr_size);
+    newSocket = accept(connection.sockfd, (struct sockaddr*)&newAddr, &addr_size);
     if(newSocket < 0){
       exit(1);
     }
     printf("Connection accepted from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
 
     if((childpid = fork())==0){
-      close(sockfd);
+      close(connection.sockfd);
       while(1){
         int n = recv(newSocket, buffer, 1024, 0);
 	printf("bytes received %d\n", n);
@@ -94,4 +80,40 @@ int main(){
   }
   close(newSocket);
   return 0;
+}
+void INThandler(int sig)
+{
+				char c;
+				signal(sig,SIG_IGN);
+				printf("you pressed ctrl+c. Do you want to exit? [y/n]");
+				c = getchar();
+				if (c=='y' || c=='Y')
+								exit(0);
+				else
+								signal(SIGINT,INThandler);
+}
+void startup(connection_info * connection,int port)
+{
+	      connection->sockfd = socket(AF_INET, SOCK_STREAM, 0);
+				if(connection->sockfd < 0){
+								printf("[-]Error in connection\n");
+								exit(1);
+				}
+				printf("[+]Server Socket is created.\n");
+
+				connection->serverAddr.sin_family = AF_INET;
+				connection->serverAddr.sin_port = htons(port);
+				connection->serverAddr.sin_addr.s_addr = inet_addr("0.0.0.0");
+
+				int ret = bind(connection->sockfd, (struct sockaddr*)&connection->serverAddr, sizeof(connection->serverAddr));
+				if(ret<0){
+								printf("[-]Error in binding.\n");
+								exit(1);
+				}
+				printf("[+]Bind to port %d\n", 8080);
+				if(listen(connection->sockfd, 10)==0){
+								printf("[+]Listening...\n");
+				}else{
+								printf("[-]Error in binding.\n");
+				}
 }
