@@ -146,19 +146,19 @@ void* start_rtn(void* arg)
   struct init_pkt *pkt = (struct init_pkt*)deser_init_pkt(u);
   if(pkt->type != INIT){
     printf("error receiving INIT packet");
-    return thr_cleanup(d, arg, thr_sockfd);
+    return thr_cleanup(((char*)d, arg, thr_sockfd);
   }
   
   pthread_mutex_lock(&lock);
-  int ret = new_user(pkt->username);
+  int ret = new_user(pkt->src);
   pthread_mutex_unlock(&lock);
   if(!ret)
-    printf("User %s has connected\n", pkt->username); 
+    printf("User %s has connected\n", pkt->src); 
   else if(ret == 1)
     ;
     // PROMPT FOR ANOTHER NAME
   else
-    return thr_cleanup(d, arg, thr_sockfd);
+    return thr_cleanup((char*)d, arg, thr_sockfd);
 
   for(;;){
     n = recv(thr_sockfd, data, 1024, 0);
@@ -174,7 +174,7 @@ void* start_rtn(void* arg)
 
     if(u[0] == 0x01){
       printf("received multiple INIT packets in same thread");
-      return thr_cleanup(d, arg, thr_sockfd);
+      return thr_cleanup((char*)d, arg, thr_sockfd);
     }
 
     if(u[0] == 0x03)
@@ -186,6 +186,10 @@ void* start_rtn(void* arg)
       printf("src: %s\n", pp->src);
       printf("dst: %s\n", pp->dst);
       printf("data: %s\n", pp->data);
+      if(!strcmp(pp->data, ":exit")){
+        printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
+        break;
+      }
     } else
       if(!strcmp(data, ":exit")){
         printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
@@ -197,7 +201,7 @@ void* start_rtn(void* arg)
       }
   }
 
-  return thr_cleanup(d, arg, sockfd);
+  return thr_cleanup((char*)d, arg, sockfd);
 }
 
 
