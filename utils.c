@@ -1,5 +1,7 @@
 #include "libs.h"
 
+unsigned char key[512];
+
 
 char * ser_data(void *pkt, char tp)
 {
@@ -7,14 +9,14 @@ char * ser_data(void *pkt, char tp)
   int off=0;
   if(tp == INIT)
   {
-    ser = malloc(sizeof(char)+sizeof(int)+sizeof(char)*200);
+    ser = malloc(sizeof(struct init_pkt));
     memcpy(ser, &((struct init_pkt*)pkt)->type, sizeof(char));
     off = sizeof(char);
-    memcpy(ser+off+1, &((struct init_pkt*)pkt)->id, sizeof(int));
+    memcpy(ser+off, &((struct init_pkt*)pkt)->id, sizeof(int));
     off += sizeof(int);
-    memcpy(ser+off+1, &((struct init_pkt*)pkt)->src, sizeof(char)*100);
+    memcpy(ser+off, &((struct init_pkt*)pkt)->src, sizeof(char)*100);
     off += sizeof(char)*100;
-    memcpy(ser+off+1, &((struct init_pkt*)pkt)->dst, sizeof(char)*100);
+    memcpy(ser+off, &((struct init_pkt*)pkt)->dst, sizeof(char)*100);
   } 
   else if(tp == ACK)
   {
@@ -32,13 +34,13 @@ char * ser_data(void *pkt, char tp)
     ser = malloc(sizeof(struct data_pkt));
     memcpy(ser, &((struct data_pkt*)pkt)->type, sizeof(char));
     off += sizeof(char);
-    memcpy(ser+off+1, &((struct data_pkt*)pkt)->id, sizeof(int));
+    memcpy(ser+off, &((struct data_pkt*)pkt)->id, sizeof(int));
     off += sizeof(int);
-    memcpy(ser+off+1, &((struct data_pkt*)pkt)->data, sizeof(char)*512);
-    off += sizeof(char)*512;
-    memcpy(ser+off+1, &((struct data_pkt*)pkt)->src, sizeof(char)*100);
-    off += sizeof(char)*100;
-    memcpy(ser+off+1, &((struct data_pkt*)pkt)->dst, sizeof(char)*100);
+    memcpy(ser+off, &((struct data_pkt*)pkt)->data, sizeof(char)*467);
+    off += sizeof(char)*467;
+    memcpy(ser+off, &((struct data_pkt*)pkt)->src, sizeof(char)*20);
+    off += sizeof(char)*20;
+    memcpy(ser+off, &((struct data_pkt*)pkt)->dst, sizeof(char)*20);
   }
   else if(tp == CLS)
   {
@@ -54,16 +56,31 @@ char * ser_data(void *pkt, char tp)
   return ser;
 }
 
+
+struct init_pkt* deser_init_pkt(char *ptr)
+{
+  char *tmp = (char*)ptr;
+  struct init_pkt* p = malloc(sizeof(struct init_pkt));
+  memcpy(&((struct init_pkt*)p)->type, tmp, 1);
+  memcpy(&((struct init_pkt*)p)->id, tmp+1,4);
+  memcpy(&((struct init_pkt*)p)->src, tmp+5, 100);
+  memcpy(&((struct init_pkt*)p)->dst, tmp+105, 100);
+
+  return p;
+}
+
+
 char * deser_data(void *pkt)
 {
   char *deser;
   char *tmp = (char*)pkt;
+
   if(tmp[0]==INIT)
-  {
+  { 
     deser = malloc(sizeof(struct init_pkt));
-    memcpy(&((struct init_pkt*)deser)->type, &((struct init_pkt*)pkt)->type, sizeof(char));
-    memcpy(&((struct init_pkt*)deser)->id, &((struct init_pkt*)pkt)->id, sizeof(int));
-    memcpy(&((struct init_pkt*)deser)->src, &((struct init_pkt*)pkt)->src, sizeof(char)*100);
+    memcpy(deser, &((struct init_pkt*)pkt)->type, sizeof(char));
+    memcpy(deser+1, &((struct init_pkt*)pkt)->id, sizeof(int));
+    memcpy(deser+5, &((struct init_pkt*)pkt)->src, sizeof(char)*100);
     memcpy(&((struct init_pkt*)deser)->dst, &((struct init_pkt*)pkt)->dst, sizeof(char)*100);
   }
   else if(tmp[0] == ACK)
@@ -75,7 +92,7 @@ char * deser_data(void *pkt)
     memcpy(&((struct ack_pkt*)pkt)->dst, &((struct ack_pkt*)pkt)->dst, sizeof(char)*100);
   }
   else if(tmp[0] == DATA)
-  {
+  { printf("DATA PKT_------------------\n");
     deser = malloc(sizeof(struct data_pkt));
     memcpy(&((struct data_pkt*)deser)->type, &((struct data_pkt*)pkt)->type, sizeof(char));
     memcpy(&((struct data_pkt*)deser)->id, &((struct data_pkt*)pkt)->id, sizeof(int));
@@ -91,5 +108,47 @@ char * deser_data(void *pkt)
     memcpy(&((struct cls_pkt*)deser)->src, &((struct cls_pkt*)pkt)->src, sizeof(char)*100);
     memcpy(&((struct cls_pkt*)deser)->dst, &((struct cls_pkt*)pkt)->dst, sizeof(char)*100);
   }
+  else
+  {
+    printf("PACKET TYPE DOES NOT EXIST!!!\n");
+  }
   return deser;
+}
+
+
+char * hide_zeros(unsigned char *ptr)
+{
+  for(int i=0;i<512; i++)
+	  key[i] = 0xAA;
+  char *data = malloc(1024);
+  for(int i =0; i<512; i++)
+  {
+    if(ptr[i] == 0x0)
+    {
+      ptr[i] = 0xFF;
+      key[i] = 0xFF;
+    }
+    memcpy(data+i, ptr+i, 1);
+  }
+  for(int j=512; j<1024; j++)
+  {
+    memcpy(data+j, &key[j-512], 1);
+  }
+  data[1024] = 0x0;
+  return data;
+}
+
+char * unhide_zeros(unsigned char *ptr)
+{
+  char *data = malloc(1024);
+  for(int i=0; i<512; i++)
+  {
+    if(ptr[i+512] == 0xFF)
+    {
+      ptr[i] = 0x0;
+    }
+    memcpy(data+i, ptr+i, 1);
+  }
+  data[1024] = 0x0;
+  return data;
 }

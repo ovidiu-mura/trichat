@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "libs.h"
@@ -13,16 +14,16 @@
 
 struct sockaddr_in serverAddr;
 struct sockaddr_in newAddr;
-
+//char buffer[1024];
+struct init_pkt *p;
 
 int main(){
-  char *d = malloc(1024);
-  char *p;
+  unsigned char *d = malloc(1024);
+  
   int sockfd, ret;
   int newSocket;
 
   socklen_t addr_size;
-
   char buffer[1024];
   pid_t childpid;
 
@@ -60,10 +61,12 @@ int main(){
     if((childpid = fork())==0){
       close(sockfd);
       while(1){
-        recv(newSocket, buffer, 1024, 0);
-	memcpy(d, buffer, 1024);
-	p = deser_data(d);
-	printf("%02x\n", p[0]);
+        int n = recv(newSocket, buffer, 1024, 0);
+	printf("bytes received %d\n", n);
+	memcpy(d, buffer, n);
+	d[n] = '\0';
+	char *u = unhide_zeros((unsigned char*)d);
+//	p = deser_init_pkt(u);
 	if(strcmp(buffer, ":exit") == 0){
 	  printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
 	  break;

@@ -35,18 +35,30 @@ int main()
     exit(1);
   }
   printf("[+]Connect to Server.\n");
-  struct init_pkt pkt_1;
-  pkt_1.id = 1;
+
+/*  struct init_pkt pkt_1;
+  pkt_1.id = 5;
   pkt_1.type = INIT;
-  printf("%02x\n", pkt_1.type);
   strcpy(pkt_1.src, "client1");
   strcpy(pkt_1.dst, "server");
-
   char *data = ser_data(&pkt_1, INIT);
-  send(clientSocket, data, strlen(data), 0);
+  char *d1 = hide_zeros(data);
+  
+  int n = send(clientSocket, d1, strlen(d1), 0);*/
+
+  struct data_pkt pkt_3;
   while(1){
     printf("Client: \t");
-    scanf("%s", &buffer[0]);
+//    scanf("%s", buffer);
+    read(STDIN_FILENO, buffer, 1024);
+    int i = 0;
+    while(buffer[i] != '\n')
+    {
+      i+=1;
+    }
+    buffer[i] = '\0';
+    printf("%s %d\n", buffer, i);
+//    exit(23);
     send(clientSocket, buffer, strlen(buffer), 0);
     if(strcmp(buffer, ":exit")==0){
 	    close(clientSocket);
@@ -56,7 +68,7 @@ int main()
 
     if(recv(clientSocket, buffer, 1024, 0)<0){
       printf("[-]Error in receiving data.\n");
-    }else{
+    } else {
       printf("Server: \t%s\n", buffer);
     }
   }
