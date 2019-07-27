@@ -37,7 +37,7 @@ int main(){
   memset(&serverAddr, '\0', sizeof(serverAddr));
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons(PORT);
-  serverAddr.sin_addr.s_addr = inet_addr("131.252.208.103");
+  serverAddr.sin_addr.s_addr = inet_addr("131.252.217.212");
 
   ret = bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
   if(ret<0){
@@ -80,7 +80,7 @@ int main(){
 		printf("src: %s\n", pp->src);
 		printf("dst: %s\n", pp->dst);
 		printf("data: %s\n", pp->data);
-	}
+	} else
 	if(strcmp(buffer, ":exit") == 0){
 	  printf("Disconnected %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
 	  break;
