@@ -14,8 +14,8 @@ struct ack_pkt
 {
   char type;
   int id;
-  char src[100];
-  char dst[100];
+  char src[20];
+  char dst[20];
 };
 
 struct init_pkt

@@ -37,7 +37,7 @@ int main(){
   memset(&serverAddr, '\0', sizeof(serverAddr));
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons(PORT);
-  serverAddr.sin_addr.s_addr = inet_addr("131.252.217.212");
+  serverAddr.sin_addr.s_addr = inet_addr("131.252.208.103");
 
   ret = bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
   if(ret<0){
@@ -61,13 +61,21 @@ int main(){
     if((childpid = fork())==0){
       close(sockfd);
       while(1){
-	      printf("waiting for receive\n");
+	printf("waiting for receive\n");
         int n = recv(newSocket, buffer, 1024, 0);
 	printf("bytes received %d %c\n", n, buffer[0]);
 	memcpy(d, buffer, n);
 	d[n] = '\0';
 	char *u = unhide_zeros((unsigned char*)d);
-//	p = deser_init_pkt(u);
+        if(u[0] == 0x01)
+	{	
+	  p = deser_init_pkt(u);
+	  printf("INIT PACKET: !!!!!!!!!!!!!!!!!\n");
+	  printf("type: %d\n", p->type);
+	  printf("id: %d\n", p->id);
+	  printf("src: %s\n", p->src);
+	  printf("dst: %s\n", p->dst);
+	}
         if(n==0)
 		break;
         if(u[0] == 0x03)

@@ -23,11 +23,11 @@ char * ser_data(void *pkt, char tp)
     ser = malloc(sizeof(struct ack_pkt));
     memcpy(ser, &((struct ack_pkt*)pkt)->type, sizeof(char));
     off += sizeof(char);
-    memcpy(ser+off+1, &((struct ack_pkt*)pkt)->id, sizeof(int));
+    memcpy(ser+off, &((struct ack_pkt*)pkt)->id, sizeof(int));
     off += sizeof(int);
-    memcpy(ser+off+1, &((struct ack_pkt*)pkt)->src, sizeof(char)*100);
-    off += sizeof(char)*100;
-    memcpy(ser+off+1, &((struct ack_pkt*)pkt)->dst, sizeof(char)*100);
+    memcpy(ser+off, &((struct ack_pkt*)pkt)->src, sizeof(char)*20);
+    off += sizeof(char)*20;
+    memcpy(ser+off, &((struct ack_pkt*)pkt)->dst, sizeof(char)*20);
   }
   else if(tp == DATA)
   {
