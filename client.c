@@ -40,7 +40,6 @@ int main()
   struct data_pkt pkt_3;
   while(1){
     printf("Client: \t");
-//    scanf("%s", buffer);
     read(STDIN_FILENO, buffer, 1024);
     int i = 0;
     while(buffer[i] != '\n')
@@ -56,7 +55,6 @@ int main()
     strcpy(pkt_3.dst, ">>server**");
     char *data = ser_data(&pkt_3, DATA);
     char *serdat = hide_zeros(data);
-    //send(clientSocket, buffer, strlen(buffer), 0);
     int no = send(clientSocket, serdat, strlen(serdat), 0);
     printf("bytes sent %d\n", no);
     if(strcmp(buffer, ":exit")==0){

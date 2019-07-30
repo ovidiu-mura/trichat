@@ -22,16 +22,33 @@ socklen_t len;
 char **users;
 pthread_mutex_t lock;
 
+void display_users()
+{
+  if(!users)
+    return;
+
+  printf("Displaying all users: ");
+  for(int i = 0; i < num_users; ++i){
+    printf("%s\n", users[num_users]);
+  }
+}
+
 int new_user(char *name)
 {
+  if(!name)
+    return 0;
+  if(!users)
+    users = malloc(MAXUSERS*sizeof(char*));
+
   if(num_users == MAXUSERS){
     printf("Maximum users connected, cannot connect at this time\n");
     return -1;
   }
+  
   for(int i = 0; i < num_users; ++i){
     if(!strcmp(users[i], name)){
       printf("%s already taken. Please enter another username: ", name);
-//    PROMPT USER AGAIN
+      //    PROMPT USER AGAIN
     }
   }
 
@@ -111,6 +128,7 @@ int main(int argc, char **argv)
       free(pthread_arg);
       continue;
     }
+    display_users();
   }
 
   //  close(sockfd); // Do in signal handler?
@@ -118,7 +136,7 @@ int main(int argc, char **argv)
   return 0;
 }
 
-int thr_cleanup(char *d, pthread_arg_t *arg, int fd)
+void* thr_cleanup(char *d, void *arg, int fd)
 {
   if(d) free(d);
   if(arg) free(arg);
@@ -138,28 +156,6 @@ void* start_rtn(void* arg)
   thr_sockfd = pthread_arg->sockfd;
   thr_addr = pthread_arg->newAddr;
 
-  n = recv(thr_sockfd, d, 1024, 0);
-  printf("bytes received %d\n", n);
-  memcpy(d, data, n);
-  d[n] = '\0';
-  u = unhide_zeros((unsigned char*)d);
-  struct init_pkt *pkt = (struct init_pkt*)deser_init_pkt(u);
-  if(pkt->type != INIT){
-    printf("error receiving INIT packet");
-    return thr_cleanup(((char*)d, arg, thr_sockfd);
-  }
-  
-  pthread_mutex_lock(&lock);
-  int ret = new_user(pkt->src);
-  pthread_mutex_unlock(&lock);
-  if(!ret)
-    printf("User %s has connected\n", pkt->src); 
-  else if(ret == 1)
-    ;
-    // PROMPT FOR ANOTHER NAME
-  else
-    return thr_cleanup((char*)d, arg, thr_sockfd);
-
   for(;;){
     n = recv(thr_sockfd, data, 1024, 0);
     printf("bytes received %d\n", n);
@@ -167,15 +163,32 @@ void* start_rtn(void* arg)
     d[n] = '\0';
     u = unhide_zeros((unsigned char*)d);
 
-    for(int i=0; i<1024; i++)
+    /*for(int i=0; i<1024; i++)
     {
       printf("%02x ", u[i]); 
-    }
+    }*/
 
     if(u[0] == 0x01){
-      printf("received multiple INIT packets in same thread");
-      return thr_cleanup((char*)d, arg, thr_sockfd);
+      p = deser_init_pkt(u);
+      pthread_mutex_lock(&lock);
+      int ret = new_user(p->src);
+      pthread_mutex_unlock(&lock);
+      if(!ret)
+        printf("User %s has connected\n", p->src); 
+      else if(ret == 1)
+        ;
+      // PROMPT FOR ANOTHER NAME
+      else
+        return thr_cleanup(d, arg, thr_sockfd);
+      printf("INIT PACKET:!!!!!!!!!\n");
+      printf("type: %d\n", p->type);
+      printf("id: %d\n", p->id);
+      printf("src: %s\n", p->src);
+      printf("dst: %s\n", p->dst);
     }
+
+    if(n == 0)
+      break;
 
     if(u[0] == 0x03)
     {
@@ -190,18 +203,19 @@ void* start_rtn(void* arg)
         printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
         break;
       }
-    } else
-      if(!strcmp(data, ":exit")){
+    } else if(!strcmp(data, ":exit")){
         printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
         break;
-      } else{
-        printf("Client: %s\n", data);
-        send(thr_sockfd, data, strlen(data), 0);
-        bzero(data, sizeof(data));
       }
+    
+    strcpy(data, "todo: send back packet");
+    data[21] = '\0';
+    printf("Client: %s\n", data);
+    send(thr_sockfd, data, strlen(data), 0);
+    bzero(data, sizeof(data));
   }
 
-  return thr_cleanup((char*)d, arg, sockfd);
+  return thr_cleanup(d, arg, thr_sockfd);
 }
 
 
