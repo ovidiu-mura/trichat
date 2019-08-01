@@ -15,28 +15,10 @@
 
 typedef struct connection_info
 {
-<<<<<<< HEAD
 				int clientSocket;
 				struct sockaddr_in serverAddr;
 				char username[20];
 }connection_info;
-=======
-  int clientSocket, ret;
-  struct sockaddr_in serverAddr;
-
-  clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-  if(clientSocket < 0){
-	  printf("[-]Error in connection.\n");
-	  exit(1);
-  }
-  printf("[+]Client Socket is created.\n");
-
-  memset(&serverAddr, '\0', sizeof(serverAddr));
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_port = htons(PORT);
-  serverAddr.sin_addr.s_addr = inet_addr("131.252.217.212");
->>>>>>> 799bce22e23726e48c3b96c8e5e0baafffb07262
-
 
 char buffer[1024];
 void INThandler(int);
