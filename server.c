@@ -33,6 +33,7 @@ pthread_t pthread;
 socklen_t len;
 char **users;
 pthread_mutex_t lock;
+bool validate_input(char *a);
 
 int new_user(char *name)
 {
@@ -60,7 +61,6 @@ int new_user(char *name)
 	++num_users;
 	return 0; 
 }
-
 int main(int argc, char *argv[])
 { 
 	//int ret;
@@ -71,12 +71,16 @@ int main(int argc, char *argv[])
 	//pid_t childpid;
 
 	signal(SIGINT,INThandler);
-	 if (argc != 2)
-         {
-          fprintf (stderr, "Usage: %s <port>\n", argv[0]);
-          exit (1);
-         }
-	 startup(&connection,argv[1]);
+	if (argc!=2)
+	{ fprintf (stderr, "Usage: %s <port>\n", argv[0]);
+		exit (EXIT_FAILURE);
+	}
+	if (validate_input(argv[1]))
+		startup(&connection,atoi(argv[1]));
+	else {
+		perror("not a valid port number");
+		exit(EXIT_FAILURE);
+	}
 
 	pthread_mutex_init(&lock, 0);
 
@@ -257,5 +261,17 @@ void* start_rtn(void* arg)
 
 	return thr_cleanup((char*)d, arg, thr_sockfd);
 }
+bool validate_input(char *a)
+{
+	int i=0;
+	if (a[i] == '-') i=1;//negative number	
+	for(;a[i]!=0;i++)
+	{
+	    if(!isdigit(a[i]))
+		    return false;
+        } 
+ return true;	
+}
+
 
 

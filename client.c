@@ -13,17 +13,23 @@ void INThandler(int);
 void get_userName(char *username);
 void set_userName(connection_info * connection);
 void connect_to_server(connection_info * connection, char *serverAddr,char *port);
+bool validate_input(char *a);
 
 int main(int argc,char *argv[])
 {
 	connection_info  connection;
 	signal(SIGINT,INThandler);
 	if (argc != 3)
-        {
-          fprintf (stderr, "Usage: %s <IP> <port>\n", argv[0]);
-          exit (1);
-        }
-	connect_to_server(&connection,argv[1],argv[2]);
+	{
+		fprintf (stderr, "Usage: %s <IP> <port>\n", argv[0]);
+		exit (EXIT_FAILURE);
+	}
+	if (strcmp(argv[1],"0.0.0.0")==0 && validate_input(argv[2]))
+		connect_to_server(&connection,argv[1],argv[2]);
+	else {
+		perror("not a valid input");
+		exit(EXIT_FAILURE);
+	}
 
 	struct init_pkt pkt_1;
 	pkt_1.id = 5;
@@ -135,3 +141,16 @@ void set_userName(connection_info * connection)
 		exit(1);
 	}
 }
+bool validate_input(char *a)
+{
+	int i=0;
+	if (a[i] == '-') i=1;//negative number	
+	for(;a[i]!=0;i++)
+	{
+	    if(!isdigit(a[i]))
+		    return false;
+        } 
+ return true;	
+}
+
+

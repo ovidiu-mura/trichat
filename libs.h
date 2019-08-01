@@ -12,5 +12,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
+#include<stdbool.h>
 #include <libgen.h>
 #include "packets.h"
