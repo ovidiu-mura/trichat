@@ -61,7 +61,7 @@ int new_user(char *name)
 	return 0; 
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 { 
 	//int ret;
 	int newSocket;
@@ -71,7 +71,12 @@ int main(int argc, char **argv)
 	//pid_t childpid;
 
 	signal(SIGINT,INThandler);
-	startup(&connection,4444);
+	 if (argc != 2)
+         {
+          fprintf (stderr, "Usage: %s <port>\n", argv[0]);
+          exit (1);
+         }
+	 startup(&connection,argv[1]);
 
 	pthread_mutex_init(&lock, 0);
 
@@ -143,7 +148,7 @@ void startup(connection_info * connection,int port)
 
 	connection->serverAddr.sin_family = AF_INET;
 	connection->serverAddr.sin_port = htons(port);
-	connection->serverAddr.sin_addr.s_addr = inet_addr("0.0.0.0");
+	connection->serverAddr.sin_addr.s_addr = INADDR_ANY;
 
 	int ret = bind(connection->sockfd, (struct sockaddr*)&connection->serverAddr, sizeof(connection->serverAddr));
 	if(ret<0)
@@ -151,7 +156,7 @@ void startup(connection_info * connection,int port)
 		printf("[-]Error in binding.\n");
 		exit(1);
 	}
-	printf("[+]Bind to port %d\n", 8080);
+	printf("[+]Bind to port %d\n", port);
 	if(listen(connection->sockfd, 10)==0)
 	{
 		printf("[+]Listening...\n");

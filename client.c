@@ -12,13 +12,18 @@ char buffer[1024];
 void INThandler(int);
 void get_userName(char *username);
 void set_userName(connection_info * connection);
-void connect_to_server(connection_info * connection, char *serverAddr,int port);
+void connect_to_server(connection_info * connection, char *serverAddr,char *port);
 
-int main()
+int main(int argc,char *argv[])
 {
 	connection_info  connection;
 	signal(SIGINT,INThandler);
-	connect_to_server(&connection,"0.0.0.0",4444);
+	if (argc != 3)
+        {
+          fprintf (stderr, "Usage: %s <IP> <port>\n", argv[0]);
+          exit (1);
+        }
+	connect_to_server(&connection,argv[1],argv[2]);
 
 	struct init_pkt pkt_1;
 	pkt_1.id = 5;
@@ -71,7 +76,7 @@ void INThandler(int sig)
 	printf("you pressed ctrl+c. Enter :exit to quit\n");
 
 }
-void connect_to_server(connection_info * connection, char *serverAddr,int port)
+void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
 	get_userName(connection->username);
 	connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -82,7 +87,7 @@ void connect_to_server(connection_info * connection, char *serverAddr,int port)
 	printf("[+]Client Socket is created.\n");
 
 	connection->serverAddr.sin_family = AF_INET;
-	connection->serverAddr.sin_port = htons(port);
+	connection->serverAddr.sin_port = htons(atoi(port));
 	connection->serverAddr.sin_addr.s_addr = inet_addr(serverAddr);
 
 	int ret = connect(connection->clientSocket, (struct sockaddr*)&connection->serverAddr,sizeof(connection->serverAddr));
