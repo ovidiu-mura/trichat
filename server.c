@@ -1,7 +1,6 @@
 #include "libs.h"
 #define MAXPENDING 10
 #define MAXUSERS 20
-#define PORT 4444
 
 static const char *server_name = ">>server**";
 
@@ -80,8 +79,18 @@ int new_user(char *name, int fd)
 //  clients[num_users].tid = pthread_self();
   clients[num_users].fd = fd;
   FD_SET(clients[num_users].fd, &client_fds);
+  FILE *fp = fopen("file.txt","a");
+  if(fp)
+  {
+	  fwrite(clients[num_users].name,strlen(name),1,fp);
+  }
+  else{
+	  perror("write error");
+  }
+
   printf("New client: %s fd: %d\n", clients[num_users].name, clients[num_users].fd);
   ++num_users;
+  fclose(fp);
   return 0; 
 }
 
