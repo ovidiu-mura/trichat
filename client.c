@@ -35,7 +35,7 @@ int main(int argc,char *argv[])
 		fprintf (stderr, "Usage: %s <IP> <port>\n", argv[0]);
 		exit (EXIT_FAILURE);
 	}
-	if (strcmp(argv[1],"0.0.0.0")==0 && validate_input(argv[2]))
+	if (validate_input(argv[2]))
 		connect_to_server(&connection,argv[1],argv[2]);
 	else {
 		perror("not a valid input");
