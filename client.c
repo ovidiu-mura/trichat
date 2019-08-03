@@ -173,14 +173,3 @@ bool validate_input(char *a)
 }
 
 
-bool validate_input(char *a)
-{
-	int i=0;
-	if (a[i] == '-') i=1;//negative number	
-	for(;a[i]!=0;i++)
-	{
-	    if(!isdigit(a[i]))
-		    return false;
-        } 
- return true;	
-}

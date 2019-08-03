@@ -292,7 +292,6 @@ void* start_rtn(void* arg)
       printf("src: %s\n", p->src);
       printf("dst: %s\n", p->dst);
     }
->>>>>>> alex
 
 		if(u[0] == 0x03)
 		{
