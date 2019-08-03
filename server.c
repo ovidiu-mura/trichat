@@ -88,24 +88,32 @@ int new_user(char *name, int fd)
 
 int send_msg(struct data_pkt *pkt)//char *pkt->dst, char *msg, char *from)
 {
-  printf("msg to %s received\n", pkt->dst);
   int fd, n;
+  char msg[1024];
 
-//  if(!pkt->dst || !msg)
-//    return -1;
+  if(!pkt || !pkt->dst)
+    return -1;
   
   for(int i = 0; i < num_users; ++i) {
-    if(!strcmp(pkt->dst, clients[i].name)){/*
+    if(!strncmp(pkt->dst, clients[i].name, strlen(pkt->dst))){/*
       strcat(pkt->dst, ".txt");
       if((fd = open(pkt->dst, O_RDWR|O_CREAT|O_TRUNC, S_IWUSR)) < 0){
         perror("Can't open user log file");
         break;
       }*/
-      strcat(pkt->src, ": ");
-      strcat(pkt->src, pkt->data);
-      printf("sending %s to %s on fd %d\n", pkt->src, clients[i].name, clients[i].fd);
-      
-      n = send(clients[i].fd, pkt->src, strlen(pkt->src), 0);
+      memset(msg, '\0', 1024);
+      strncpy(msg, pkt->src, strlen(pkt->src));
+      strcat(msg, ": ");
+      strcat(msg, pkt->data);
+      struct data_pkt msg_pkt;
+      msg_pkt.type = DATA;
+      strcpy(msg_pkt.src, pkt->src);
+      strcpy(msg_pkt.dst, pkt->dst);
+      strcpy(msg_pkt.data, msg);
+      msg_pkt.id = 1;
+      char *u = ser_data(&msg_pkt, DATA);
+      char *data = hide_zeros(u);
+      n = send(clients[i].fd, data, 1024, 0);
       if(n > 0)
         return 0;
       printf("Something went wrong");
@@ -289,27 +297,29 @@ void* start_rtn(void* arg)
       // PROMPT FOR ANOTHER NAME
       else
         return thr_cleanup(d, arg, thr_sockfd);
-      printf("INIT PACKET:!!!!!!!!!\n");
+    /*  printf("INIT PACKET:!!!!!!!!!\n");
       printf("type: %d\n", p->type);
       printf("id: %d\n", p->id);
       printf("src: %s\n", p->src);
-      printf("dst: %s\n", p->dst);
+      printf("dst: %s\n", p->dst);*/
     }
 
 		if(u[0] == 0x03)
 		{
 			struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
     if(strcmp(pp->dst, server_name)){
+      pp->dst[strlen(pp->dst)] = '\0';
+      printf("Message: %s\n", pp->data);
       //  pthread_mutex_lock(&msg_lock);
-        send_msg(pp);
+      send_msg(pp);
      //   pthread_mutex_unlock(&msg_lock);
     }
-			printf("DATA PACKET:!!!!!!!!!\n");
+	/*		printf("DATA PACKET:!!!!!!!!!\n");
 			printf("type: %d\n", pp->type);
 			printf("id: %d\n", pp->id);
 			printf("src: %s\n", pp->src);
 			printf("dst: %s\n", pp->dst);
-			printf("data: %s\n", pp->data);
+			printf("data: %s\n", pp->data);*/
 			if(!strcmp(pp->data, ":exit"))
 			{
 				printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
@@ -322,8 +332,8 @@ void* start_rtn(void* arg)
 				break;
 			} else
 			{
-//				printf("Client: %s\n", data);
-				send(thr_sockfd, data, strlen(data), 0);
+//  			printf("Client: %s\n", data);
+//      	send(thr_sockfd, data, strlen(data), 0);
 				bzero(data, sizeof(data));
 			}
 	}
