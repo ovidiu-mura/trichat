@@ -71,7 +71,6 @@ int main(int argc,char *argv[])
 	struct data_pkt pkt_3;
   int msg_start = 0;
 	while(1){
-		printf("Client: \t");
 		read(STDIN_FILENO, buffer, 1024);
 		int i = 0;
     if(buffer[0] == '@'){
@@ -106,16 +105,21 @@ int main(int argc,char *argv[])
 
 void *start_rtn(void *arg)
 {
+  int n;
   pthread_arg_t *pthread_arg = (pthread_arg_t*)arg;
+
   for(;;){
-		if(recv(pthread_arg->sockfd, buffer, 1024, 0)<0){
+		if((n = recv(pthread_arg->sockfd, buffer, 1024, 0))<0){
 			printf("[-]Error in receiving data.\n");
-		} else {
+		} else if(buffer[0] = 0x03){
       pthread_mutex_lock(&lock);
-      printf("Server: \t%s\n", buffer);
+      char *temp = unhide_zeros(buffer); 
+      struct data_pkt *pkt = deser_data_pkt(temp);      
+      printf("%s\n", pkt->data);
       pthread_mutex_unlock(&lock);
 		}
-  }
+    bzero(buffer, sizeof(buffer));
+	}
 }
 
 void INThandler(int sig)
@@ -145,48 +149,23 @@ void connect_to_server(connection_info * connection, char *serverAddr,char *port
 		exit(1);
 	}
 	printf("[+]Connected to Server.\n");
-	//set_userName(connection);
 }
 
 void get_userName(char *username)
 {
+  int i = 0;
 	printf("Enter a username: ");
 	fflush(stdout);
   fgets(username,20,stdin);
-  printf("%s", username);
+  while(username[i] != '\n')
+    ++i;
+  username[i] = '\0';
 	if(strlen(username)>20){
 		puts("username must be 20 characters or less.\n");
     memset(username, 0, 20);
     get_userName(username);
   }
 }
-
-/*void set_userName(connection_info * connection)
-{
-	struct data_pkt pkt_3;
-	read(STDIN_FILENO, buffer, 1024);
-	int i = 0;
-	while(buffer[i] != '\n')
-	{
-		i+=1;
-	}
-	buffer[i] = '\0';
-	printf("%s %d\n", buffer, i);
-	pkt_3.type = DATA;
-	pkt_3.id = 35;
-	memcpy(&pkt_3.data, &buffer, 300);
-	strcpy(pkt_3.src, "client21");
-	strcpy(pkt_3.dst, ">>server**");
-	char *data = ser_data(&pkt_3, DATA);
-	char *serdat = hide_zeros(data);
-	send(clientSocket, buffer, strlen(buffer), 0);
-	int no = send(connection->clientSocket, serdat, strlen(serdat), 0);
-
-	strncpy(buffer,connection->username,strlen(connection->username));
-  if(no<0){
-		perror("send failure ");
-		exit(1);
-}*/
 
 bool validate_input(char *a)
 {
