@@ -2,7 +2,6 @@
 
 unsigned char key[512];
 
-
 char * ser_data(void *pkt, char tp)
 {
   char *ser;
@@ -55,7 +54,6 @@ char * ser_data(void *pkt, char tp)
   }
   return ser;
 }
-
 
 struct init_pkt* deser_init_pkt(char *ptr)
 {
@@ -125,7 +123,6 @@ char * deser_data(void *pkt)
   }
   return deser;
 }
-
 
 char * hide_zeros(unsigned char *ptr)
 {
