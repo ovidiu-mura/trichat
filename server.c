@@ -203,13 +203,18 @@ void* start_rtn(void* arg)
         printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
         break;
       }
-    } else if(!strcmp(data, ":exit")){
+    } else if(u[0] == 0x04) {
+      struct cls_pkt *cls = (struct cls_pkt*)deser_cls_pkt(u);
+      printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
+      break;
+    } 
+    /*else if(!strcmp(data, ":exit")){
         printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
         break;
-      }
+      }*/
     
-    strcpy(data, "todo: send back packet");
-    data[21] = '\0';
+    strcpy(data, "todo: send back ack packet");
+    data[25] = '\0';
     printf("Client: %s\n", data);
     send(thr_sockfd, data, strlen(data), 0);
     bzero(data, sizeof(data));
