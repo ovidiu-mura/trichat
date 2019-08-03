@@ -19,6 +19,8 @@ void get_userName(char *username);
 void set_userName(connection_info * connection);
 void connect_to_server(connection_info * connection, char *serverAddr,char *port);
 bool validate_input(char *a);
+bool validate_ip(char *a);
+
 
 pthread_t recv_thread;
 pthread_arg_t* pthread_arg;
@@ -35,7 +37,7 @@ int main(int argc,char *argv[])
 		fprintf (stderr, "Usage: %s <IP> <port>\n", argv[0]);
 		exit (EXIT_FAILURE);
 	}
-	if (strcmp(argv[1],"0.0.0.0")==0 && validate_input(argv[2]))
+	if (validate_ip(argv[1]) && validate_input(argv[2]))
 		connect_to_server(&connection,argv[1],argv[2]);
 	else {
 		perror("not a valid input");
@@ -172,4 +174,38 @@ bool validate_input(char *a)
  return true;	
 }
 
-
+//extended from https://www.geeksforgeeks.org/program-to-validate-an-ip-address/
+bool validate_ip(char *a)
+{
+	int i=0, num, dot = 0; 
+        char *ptr; 
+  
+       if (a == NULL) 
+        return false; 
+       ptr = strtok(a, "."); 
+  
+       if (ptr == NULL) 
+        return false; 
+  
+       while (ptr) { 
+  
+         /* after parsing string, it must contain only digits */
+        if (!validate_input(ptr)) 
+            return false; 
+  
+        num = atoi(ptr); 
+  
+        /* check for valid IP */
+        if (num >= 0 && num <= 255) { 
+            /* parse remaining string */
+            ptr = strtok(NULL, "."); 
+            if (ptr != NULL) 
+                ++dot; 
+        } else
+            return false; 
+    } 
+    /* valid IP string must contain 3 dots */
+    if (dot != 3) 
+        return false; 
+    return true;
+}
