@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
       continue;
     }
     else
-      printf("Connection accepted from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+      printf("Connection accepted from %s:%d\n", inet_ntoa(pthread_arg->newAddr.sin_addr), ntohs(pthread_arg->newAddr.sin_port));
 
     if(pthread_create(&pthread, &pthread_attr, start_rtn, (void*)pthread_arg))
     {
@@ -321,6 +321,15 @@ void* start_rtn(void* arg)
       if(!ret) {
         printf("User %s has connected\n", p->src); 
         printf("todo: send ack packet\n");
+	struct ack_pkt ack;
+	ack.type = ACK;
+	ack.id = 1;
+	strcpy(ack.src, "source");
+	strcpy(ack.dst, "destination");
+	char *serack = ser_data(&ack, ACK);
+	char *udata = hide_zeros(serack);
+        send(thr_sockfd, udata, strlen(udata), 0);
+
       } else if(ret == 1)
         ;
       // PROMPT FOR ANOTHER NAME
