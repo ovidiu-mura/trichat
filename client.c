@@ -71,7 +71,6 @@ int main(int argc,char *argv[])
 	struct data_pkt pkt_3;
   int msg_start = 0;
 	while(1){
-		printf("Client: \t");
 		read(STDIN_FILENO, buffer, 1024);
 		int i = 0;
     if(buffer[0] == '@'){
@@ -86,7 +85,7 @@ int main(int argc,char *argv[])
 		while(buffer[i] != '\n')
       ++i;
 		buffer[i] = '\0';
-	//	printf("%s %d\n", &buffer[msg_start], i-msg_start);
+		printf("%s %d\n", &buffer[msg_start], i-msg_start);
 		pkt_3.type = DATA;
 		pkt_3.id = getpid();
 		strcpy(pkt_3.data, &buffer[msg_start]);
@@ -120,7 +119,7 @@ void *start_rtn(void *arg)
       pthread_mutex_unlock(&lock);
 		}
     bzero(buffer, sizeof(buffer));
-  }
+	}
 }
 
 void INThandler(int sig)
@@ -154,10 +153,13 @@ void connect_to_server(connection_info * connection, char *serverAddr,char *port
 
 void get_userName(char *username)
 {
+  int i = 0;
 	printf("Enter a username: ");
 	fflush(stdout);
   fgets(username,20,stdin);
-  printf("%s", username);
+  while(username[i] != '\n')
+    ++i;
+  username[i] = '\0';
 	if(strlen(username)>20){
 		puts("username must be 20 characters or less.\n");
     memset(username, 0, 20);
