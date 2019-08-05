@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
 
   struct data_pkt pkt_3;
   int msg_start = 0;
+  int isExit = 0;
   while(1){
     read(STDIN_FILENO, buffer, 1024);
     int i = 0;
@@ -96,17 +97,36 @@ int main(int argc, char *argv[])
       ++i;
     buffer[i] = '\0';
     printf("%s %d\n", &buffer[msg_start], i-msg_start);
-    pkt_3.type = DATA;
-    pkt_3.id = getpid();
-    strcpy(pkt_3.data, &buffer[msg_start]);
-    strcpy(pkt_3.src, connection.username);
-    char *data = ser_data(&pkt_3, DATA);
-    char *serdat = hide_zeros(data);
-    int no = send(connection.clientSocket, serdat, strlen(serdat), 0);
-    printf("bytes sent %d\n", no);
+    if(strcmp(buffer, ":exit") == 0) {
+      isExit = 1;
+    }
+    if(!isExit) {
+      pkt_3.type = DATA;
+      pkt_3.id = getpid();
+      strcpy(pkt_3.data, &buffer[msg_start]);
+      strcpy(pkt_3.src, connection.username);
+      char *data = ser_data(&pkt_3, DATA);
+      char *serdat = hide_zeros(data);
+      int no = send(connection.clientSocket, serdat, strlen(serdat), 0);
+      printf("bytes sent %d\n", no);
+      continue;
+    }
     if(strcmp(buffer, ":exit")==0){
-      close(connection.clientSocket);
-      printf("[-]Disconnected from server.\n");
+      struct cls_pkt cls;
+      cls.type = CLS;
+      cls.id = 1;
+      strcpy(cls.src, "client");
+      strcpy(cls.dst, "server");
+      char *serd = ser_data(&cls, CLS);
+      char *hzcls = hide_zeros(serd);
+      int n = send(connection.clientSocket, hzcls, strlen(hzcls), 0);
+      if(n == strlen(hzcls)){
+        close(connection.clientSocket);
+        printf("[-]Disconnected from server.\n");
+      } else {
+        printf("[-]Failed to disconnect from server properly.\n");
+	exit(-1);
+      }
       exit(1);
     }
   }

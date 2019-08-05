@@ -320,7 +320,6 @@ void* start_rtn(void* arg)
       pthread_mutex_unlock(&lock);
       if(!ret) {
         printf("User %s has connected\n", p->src); 
-        printf("todo: send ack packet\n");
 	struct ack_pkt ack;
 	ack.type = ACK;
 	ack.id = 1;
@@ -366,6 +365,8 @@ void* start_rtn(void* arg)
         printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
         break;
       }
+    } else if(u[0] == 0x4) {
+      printf("CLS packet received.\n");
     } else
       if(!strcmp(data, ":exit"))
       {
