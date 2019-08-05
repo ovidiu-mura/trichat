@@ -2,7 +2,6 @@
 
 unsigned char key[512];
 
-
 char * ser_data(void *pkt, char tp)
 {
   char *ser;
@@ -47,15 +46,14 @@ char * ser_data(void *pkt, char tp)
     ser = malloc(sizeof(struct cls_pkt));
     memcpy(ser, &((struct cls_pkt*)pkt)->type, sizeof(char));
     off += sizeof(char);
-    memcpy(ser+off+1, &((struct cls_pkt*)pkt)->id, sizeof(int));
+    memcpy(ser+off, &((struct cls_pkt*)pkt)->id, sizeof(int));
     off += sizeof(int);
-    memcpy(ser+off+1, &((struct cls_pkt*)pkt)->src, sizeof(char)*100);
+    memcpy(ser+off, &((struct cls_pkt*)pkt)->src, sizeof(char)*100);
     off += sizeof(char)*100;
-    memcpy(ser+off+1, &((struct cls_pkt*)pkt)->dst, sizeof(char)*100);
+    memcpy(ser+off, &((struct cls_pkt*)pkt)->dst, sizeof(char)*100);
   }
   return ser;
 }
-
 
 struct init_pkt* deser_init_pkt(char *ptr)
 {
@@ -81,6 +79,26 @@ struct data_pkt* deser_data_pkt(char *ptr)
   return p;
 }
 
+struct ack_pkt* deser_ack_pkt(char *ptr)
+{
+  char *tmp = (char*)ptr;
+  struct ack_pkt* p = malloc(sizeof(struct ack_pkt));
+  memcpy(&((struct ack_pkt*)p)->type, tmp, 1);
+  memcpy(&((struct ack_pkt*)p)->id, tmp+1, 4);
+  memcpy(&((struct ack_pkt*)p)->src, tmp+5, 20);
+  memcpy(&((struct ack_pkt*)p)->dst, tmp+25, 20);
+}
+
+struct cls_pkt* deser_cls_pkt(char *ptr)
+{
+  char *tmp = (char*)ptr;
+  struct cls_pkt* p = malloc(sizeof(struct cls_pkt));
+  memcpy(&((struct cls_pkt*)p)->type, tmp, 1);
+  memcpy(&((struct cls_pkt*)p)->id, tmp+1, 4);
+  memcpy(&((struct cls_pkt*)p)->src, tmp+5, 100);
+  memcpy(&((struct cls_pkt*)p)->dst, tmp+105, 100);
+}
+
 char * deser_data(void *pkt)
 {
   char *deser;
@@ -103,7 +121,7 @@ char * deser_data(void *pkt)
     memcpy(&((struct ack_pkt*)pkt)->dst, &((struct ack_pkt*)pkt)->dst, sizeof(char)*100);
   }
   else if(tmp[0] == DATA)
-  { printf("DATA PKT_------------------\n");
+  { 
     deser = malloc(sizeof(struct data_pkt));
     memcpy(&((struct data_pkt*)deser)->type, &((struct data_pkt*)pkt)->type, sizeof(char));
     memcpy(&((struct data_pkt*)deser)->id, &((struct data_pkt*)pkt)->id, sizeof(int));
@@ -125,7 +143,6 @@ char * deser_data(void *pkt)
   }
   return deser;
 }
-
 
 char * hide_zeros(unsigned char *ptr)
 {
