@@ -194,6 +194,7 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
 void INThandler(int sig)
 {
 	char c;
@@ -205,6 +206,8 @@ void INThandler(int sig)
 	else
 		signal(SIGINT,INThandler);
 }
+
+
 void startup(connection_info * connection,int port)
 {
 	connection->sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -235,6 +238,7 @@ void startup(connection_info * connection,int port)
 	}
 }
 
+
 void* thr_cleanup(char *d, pthread_arg_t *arg, int fd)
 {
 	if(d) free(d);
@@ -242,6 +246,7 @@ void* thr_cleanup(char *d, pthread_arg_t *arg, int fd)
 	close(fd);
 	return 0;
 }
+
 
 void display_users()
 {
@@ -270,15 +275,15 @@ void* start_rtn(void* arg)
   thr_sockfd = pthread_arg->sockfd;
 	thr_addr = pthread_arg->newAddr;
 
-	for(;;)
-	{
-		n = recv(thr_sockfd, data, 1024, 0);
+  for(;;)
+  {
+    n = recv(thr_sockfd, data, 1024, 0);
     if(n == 0)
       break;
-		printf("bytes received %d\n", n);
-		memcpy(d, data, n);
-		d[n] = '\0';
-		u = unhide_zeros((unsigned char*)d);
+    printf("bytes received %d\n", n);
+    memcpy(d, data, n);
+    d[n] = '\0';
+    u = unhide_zeros((unsigned char*)d);
 
 /*		for(int i=0; i<1024; i++)
 		{
@@ -290,9 +295,10 @@ void* start_rtn(void* arg)
       pthread_mutex_lock(&lock);
       int ret = new_user(p->src, thr_sockfd);
       pthread_mutex_unlock(&lock);
-      if(!ret)
+      if(!ret) {
         printf("User %s has connected\n", p->src); 
-      else if(ret == 1)
+        printf("todo: send ack packet\n");
+      } else if(ret == 1)
         ;
       // PROMPT FOR ANOTHER NAME
       else
@@ -307,9 +313,9 @@ void* start_rtn(void* arg)
     if(n == 0)
       break;
 
-		if(u[0] == 0x03)
-		{
-			struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
+    if(u[0] == 0x03)
+    {
+    struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
     if(strcmp(pp->dst, server_name)){
       pp->dst[strlen(pp->dst)] = '\0';
       printf("Message: %s\n", pp->data);
