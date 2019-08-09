@@ -87,6 +87,7 @@ struct ack_pkt* deser_ack_pkt(char *ptr)
   memcpy(&((struct ack_pkt*)p)->id, tmp+1, 4);
   memcpy(&((struct ack_pkt*)p)->src, tmp+5, 20);
   memcpy(&((struct ack_pkt*)p)->dst, tmp+25, 20);
+  return p;
 }
 
 struct cls_pkt* deser_cls_pkt(char *ptr)
@@ -97,6 +98,7 @@ struct cls_pkt* deser_cls_pkt(char *ptr)
   memcpy(&((struct cls_pkt*)p)->id, tmp+1, 4);
   memcpy(&((struct cls_pkt*)p)->src, tmp+5, 100);
   memcpy(&((struct cls_pkt*)p)->dst, tmp+105, 100);
+  return p;
 }
 
 char * deser_data(void *pkt)

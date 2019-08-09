@@ -88,7 +88,7 @@ int new_user(char *name, int fd)
 
 int send_to_all(struct data_pkt *pkt)
 {
-  int fd, n;
+  int n;
   char msg[1024];
 
   if(!pkt || !pkt->dst || !pkt->data)
@@ -106,7 +106,7 @@ int send_to_all(struct data_pkt *pkt)
   strcpy(msg_pkt.data, msg);
   msg_pkt.id = 1;
   char *u = ser_data(&msg_pkt, DATA);
-  char *data = hide_zeros(u);
+  char *data = hide_zeros((unsigned char*)u);
   for(int i = 0; i < num_users; ++i) {
     n = send(clients[i].fd, data, 1024, 0);
     if(n > 0)
@@ -119,7 +119,7 @@ int send_to_all(struct data_pkt *pkt)
 
 int send_msg(struct data_pkt *pkt)
 {
-  int fd, n;
+  int n;
   char msg[1024];
 
   if(!pkt || !pkt->dst || !pkt->data)
@@ -138,7 +138,7 @@ int send_msg(struct data_pkt *pkt)
       strcpy(msg_pkt.data, msg);
       msg_pkt.id = 1;
       char *u = ser_data(&msg_pkt, DATA);
-      char *data = hide_zeros(u);
+      char *data = hide_zeros((unsigned char*)u);
       n = send(clients[i].fd, data, 1024, 0);
       if(n > 0)
         return 0;
@@ -152,9 +152,7 @@ int send_msg(struct data_pkt *pkt)
 
 int main(int argc, char *argv[])
 { 
-  int newSocket;
   connection_info connection;
-  socklen_t addr_size;
 
   signal(SIGINT,INThandler);
   if (argc!=2)
@@ -312,10 +310,10 @@ void* start_rtn(void* arg)
     printf("bytes received %d\n", n);
     memcpy(d, data, n);
     d[n] = '\0';
-    u = unhide_zeros((unsigned char*)d);
+    u = (unsigned char*)unhide_zeros((unsigned char*)d);
 
     if(u[0] == 0x01){
-      p = deser_init_pkt(u);
+      p = deser_init_pkt((char*)u);
       pthread_mutex_lock(&lock);
       int ret = new_user(p->src, thr_sockfd);
       pthread_mutex_unlock(&lock);
@@ -327,13 +325,13 @@ void* start_rtn(void* arg)
 	strcpy(ack.src, "source");
 	strcpy(ack.dst, "destination");
 	char *serack = ser_data(&ack, ACK);
-	char *udata = hide_zeros(serack);
+	char *udata = hide_zeros((unsigned char*)serack);
         send(thr_sockfd, udata, strlen(udata), 0);
       } else if(ret == 1)
         ;
       // PROMPT FOR ANOTHER NAME
       else
-        return thr_cleanup(d, arg, thr_sockfd);
+        return thr_cleanup((char*)d, arg, thr_sockfd);
     }
     if(u[0] == 0x03)
     {
@@ -343,9 +341,9 @@ void* start_rtn(void* arg)
       strcpy(ack.src, "ssrcdataack");
       strcpy(ack.dst, "sdstdataack");
       char *serack = ser_data(&ack, ACK);
-      char *udata = hide_zeros(serack);
+      char *udata = hide_zeros((unsigned char*)serack);
       send(thr_sockfd, udata, strlen(udata), 0); // send ack packet for data
-      struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
+      struct data_pkt *pp = (struct data_pkt*)deser_data_pkt((char*)u);
       if(strcmp(pp->dst, server_name)){
         pthread_mutex_lock(&msg_lock);
         send_msg(pp);
@@ -362,7 +360,7 @@ void* start_rtn(void* arg)
     } else
         bzero(data, sizeof(data));
   }
-  return thr_cleanup(d, arg, thr_sockfd);
+  return thr_cleanup((char*)d, arg, thr_sockfd);
 }
 
 bool validate_input(char *a)

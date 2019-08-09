@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
   pkt_1.type = INIT;
   strcpy(pkt_1.src, connection.username);
   strcpy(pkt_1.dst, "server");
-  char *data = ser_data(&pkt_1, INIT);
+  unsigned char *data = (unsigned char*)ser_data(&pkt_1, INIT);
   char *d1 = hide_zeros(data);
   int n = send(connection.clientSocket, d1, strlen(d1), 0);
   if(n <= 0){
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
   }
 
   int nn = recv(connection.clientSocket, buffer, 1024, 0);
-  unsigned char *un = unhide_zeros((unsigned char *)buffer);
+  unsigned char *un = (unsigned char*)unhide_zeros((unsigned char *)buffer);
   printf("received %d bytes, %02x\n", nn, un[0]);
   if(un[0] == 0x2)
   {
@@ -112,20 +112,8 @@ int main(int argc, char *argv[])
       strcpy(pkt_3.data, &buffer[msg_start]);
       strcpy(pkt_3.src, connection.username);
       char *data = ser_data(&pkt_3, DATA);
-      char *serdat = hide_zeros(data);
-      int no = send(connection.clientSocket, serdat, strlen(serdat), 0);
-//      printf("bytes sent %d\n", no);
-/*      int nb = 0;
-      if((nb = recv(connection.clientSocket, buffer, 1024, 0))<0) // receive the server ack packet reply
-      {
-        printf("[-]Error in receiving ack data packet.\n");
-      } else if(buffer[0]!=0x02){
-	printf("[-]Client received not ack packet, it is %02x packet\n", buffer[0]);
-        send(connection.clientSocket, serdat, strlen(serdat), 0);
-      } else if(buffer[0]==0x02){
-	printf("ack data packet received\n");
-	bzero(buffer, sizeof(buffer));
-      }*/
+      char *serdat = hide_zeros((unsigned char*)data);
+      send(connection.clientSocket, serdat, strlen(serdat), 0);
       bzero(buffer, sizeof(buffer));
       continue;
     }
@@ -136,7 +124,7 @@ int main(int argc, char *argv[])
       strcpy(cls.src, "client");
       strcpy(cls.dst, "server");
       char *serd = ser_data(&cls, CLS);
-      char *hzcls = hide_zeros(serd);
+      char *hzcls = hide_zeros((unsigned char*)serd);
       int n = send(connection.clientSocket, hzcls, strlen(hzcls), 0);
       if(n == strlen(hzcls)){
         close(connection.clientSocket);
@@ -163,7 +151,7 @@ void *start_rtn(void *arg)
       printf("[-]Error in receiving data.\n");
     } else if(buffer[0] == 0x03){
     pthread_mutex_lock(&lock);
-    char *temp = unhide_zeros(buffer); 
+    char *temp = unhide_zeros((unsigned char*)buffer); 
     struct data_pkt *pkt = deser_data_pkt(temp);      
     printf("%s\n", pkt->data);
     pthread_mutex_unlock(&lock);
@@ -177,7 +165,6 @@ void *start_rtn(void *arg)
 
 void INThandler(int sig)
 {
-  char c[10];
   signal(sig,SIG_IGN);
   printf("you pressed ctrl+c. Enter :exit to quit\n");
   bzero(buffer, sizeof(buffer));
