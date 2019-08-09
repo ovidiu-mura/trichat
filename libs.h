@@ -18,4 +18,8 @@
 #include <aio.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <openssl/opensslv.h>
+#include <openssl/rand.h>
+#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include "packets.h"

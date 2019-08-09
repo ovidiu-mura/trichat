@@ -1,8 +1,4 @@
 #include "libs.h"
-#include <openssl/opensslv.h>
-#include <openssl/rand.h>
-#include <openssl/sha.h>
-#include <openssl/evp.h>
 
 typedef struct connection_info
 {
@@ -167,7 +163,7 @@ void INThandler(int sig)
 
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
-	get_userName(connection->username);
+	get_userName(connection->username); 
 	get_password(connection->password);
 	if(!validate_username_password(connection->username,connection->password))
 	{
@@ -218,22 +214,36 @@ void get_password(char *password)
 bool validate_username_password(char *username,char *password)
 {
         char uname[20];
-	char filepass[20];
         char output[60];
         char *ptr = &output[0];
-        //Convert password byte into hex
-        for (int i = 0; i < strlen(password)-1; i++){
-              ptr += sprintf (ptr, "%02x", password[i]);
+        unsigned char hashfilepass[SHA_DIGEST_LENGTH];
+        unsigned char hashuserpass[SHA_DIGEST_LENGTH];
+       	
+	//calculate SHA1 of password
+	SHA1(password,sizeof(password),hashuserpass);
+       
+        //Convert SHA1 byte into hex
+        for (int i = 0; i < strlen(hashuserpass)-1; i++){
+              ptr += sprintf (ptr, "%02x", hashuserpass[i]);
+	    
          } 
+	 // convert to loser case
+	 for(int i=0;i<40;i++)
+	 {
+		 output[i]=tolower(output[i]);
+	 }
+	
+	// open password file and comapre username and password
 	FILE *fp = fopen("password.txt","r");
 	if ( fp != NULL )
         {
          while (!feof(fp)) /* read till end of file */
          {
-            fscanf (fp,"%s %s",uname,filepass);
+            fscanf (fp,"%s %s",uname,hashfilepass);
+
 	    if(strncmp(username,uname,strlen(uname)-1)==0)
 	    {
-	     if(strncmp(filepass,output,strlen(password)-1)==0)
+	     if(strncmp(hashfilepass,output,strlen(hashfilepass)-1)==0)
 	     {
 		    printf("Access Granted\n");
           	    return true;
