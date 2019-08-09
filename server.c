@@ -81,10 +81,10 @@ int new_user(char *name, int fd)
   clients[num_users].online = 1;
   // FD_SET(clients[num_users].fd, &client_fds);
   
-  FILE *fp = fopen("file.txt","a");
-  if(fp)
+  int file_desc = open("file.txt",O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);;
+  if(file_desc)
   {
-	  fwrite(clients[num_users].name,strlen(name),1,fp);
+	  write(file_desc,clients[num_users].name,strlen(name));
   }
   else{
 	  perror("write error");
@@ -98,7 +98,7 @@ int new_user(char *name, int fd)
 
 int send_to_all(struct data_pkt *pkt)
 {
-  int fd, n;
+  int  n;
   char msg[1024];
 
   if(!pkt || !pkt->dst || !pkt->data)
@@ -163,18 +163,18 @@ int main(int argc, char *argv[])
 { 
   int newSocket;
   connection_info connection;
-  socklen_t addr_size;
+  //socklen_t addr_size;
 
   signal(SIGINT,INThandler);
   if (argc!=2)
   { fprintf (stderr, "Usage: %s <port>\n", argv[0]);
-    exit (EXIT_FAILURE);
+    _exit (EXIT_FAILURE);
   }
   if (validate_input(argv[1]))
     startup(&connection,atoi(argv[1]));
   else {
     perror("not a valid port number");
-    exit(EXIT_FAILURE);
+    _exit(EXIT_FAILURE);
   }
 
   pthread_mutex_init(&lock, 0);
@@ -183,13 +183,13 @@ int main(int argc, char *argv[])
   if(pthread_attr_init(&pthread_attr))
   {
     perror("pthread_attr_init failed");
-    exit(EXIT_FAILURE);
+    _exit(EXIT_FAILURE);
   }
 
   if(pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED))
   {
     perror("pthread_attr_setdetachstate failed");
-    exit(EXIT_FAILURE);
+    _exit(EXIT_FAILURE);
   }
 
   for(;;)
@@ -230,10 +230,11 @@ void INThandler(int sig)
 {
   char c;
   signal(sig,SIG_IGN);
-  printf("you pressed ctrl+c. Do you want to exit? [y/n]");
+  char *str = "you pressed ctrl+c. Do you want to exit? [y/n]";
+  write(STDOUT_FILENO,str,strlen(str));
   c = getchar();
   if (c=='y' || c=='Y')
-    exit(0);
+    _exit(EXIT_SUCCESS);
   else
     signal(SIGINT,INThandler);
 }
@@ -244,8 +245,8 @@ void startup(connection_info * connection,int port)
   connection->sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(connection->sockfd < 0)
   {
-    printf("[-]Error in connection\n");
-    exit(1);
+    perror("[-]Error in connection\n");
+    _exit(EXIT_FAILURE);
   }
 
   connection->serverAddr.sin_family = AF_INET;
@@ -255,8 +256,8 @@ void startup(connection_info * connection,int port)
   int ret = bind(connection->sockfd, (struct sockaddr*)&connection->serverAddr, sizeof(connection->serverAddr));
   if(ret<0)
   {
-    printf("[-]Error in binding.\n");
-    exit(1);
+    perror("[-]Error in binding.\n");
+    _exit(EXIT_FAILURE);
   }
   printf("[+]Bind to port %d\n", port);
   if(listen(connection->sockfd, 10)==0)
@@ -264,7 +265,7 @@ void startup(connection_info * connection,int port)
     printf("[+]Listening...\n");
   }else
   {
-    printf("[-]Error in binding.\n");
+    perror("[-]Error in binding.\n");
   }
 }
 
@@ -393,7 +394,7 @@ bool validate_input(char *a)
 {
   int i=0;
   if (a[i] == '-') i=1;//negative number	
-  for(;a[i]!=0;i++)
+  for(;a[i]!='\0';i++)
   {
     if(!isdigit(a[i]))
       return false;
