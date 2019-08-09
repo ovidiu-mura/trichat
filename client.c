@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  printf("--!--\n");
   int nn = recv(connection.clientSocket, buffer, 1024, 0);
   unsigned char *un = unhide_zeros((unsigned char *)buffer);
   printf("received %d bytes, %02x\n", nn, un[0]);
@@ -82,17 +81,24 @@ int main(int argc, char *argv[])
   struct data_pkt pkt_3;
   int msg_start = 0;
   int isExit = 0;
+  char ttmp[20];
+
   while(1){
     read(STDIN_FILENO, buffer, 1024);
     int i = 0;
     if(buffer[0] == '@'){
       while(buffer[i] != ' ')
         ++i;
-      buffer[i] = '\0';
-      strcpy(pkt_3.dst, &buffer[1]);
+      strncpy(ttmp, buffer, i);
+//      buffer[i] = '\0';
+      ttmp[i] = '\0';
+      strcpy(pkt_3.dst, &ttmp[1]);
+//      strcpy(pkt_3.dst, &buffer[1]);
       msg_start = i+1;
-    } else
+    } else {
       strcpy(pkt_3.dst, ">>server**");
+      msg_start = 0;
+    }
     while(buffer[i] != '\n')
       ++i;
     buffer[i] = '\0';
@@ -108,7 +114,19 @@ int main(int argc, char *argv[])
       char *data = ser_data(&pkt_3, DATA);
       char *serdat = hide_zeros(data);
       int no = send(connection.clientSocket, serdat, strlen(serdat), 0);
-      printf("bytes sent %d\n", no);
+//      printf("bytes sent %d\n", no);
+/*      int nb = 0;
+      if((nb = recv(connection.clientSocket, buffer, 1024, 0))<0) // receive the server ack packet reply
+      {
+        printf("[-]Error in receiving ack data packet.\n");
+      } else if(buffer[0]!=0x02){
+	printf("[-]Client received not ack packet, it is %02x packet\n", buffer[0]);
+        send(connection.clientSocket, serdat, strlen(serdat), 0);
+      } else if(buffer[0]==0x02){
+	printf("ack data packet received\n");
+	bzero(buffer, sizeof(buffer));
+      }*/
+      bzero(buffer, sizeof(buffer));
       continue;
     }
     if(strcmp(buffer, ":exit")==0){
@@ -128,6 +146,8 @@ int main(int argc, char *argv[])
 	exit(-1);
       }
       exit(1);
+    } else {
+      bzero(buffer, sizeof(buffer));
     }
   }
   return 0;
@@ -141,12 +161,15 @@ void *start_rtn(void *arg)
   for(;;){
     if((n = recv(pthread_arg->sockfd, buffer, 1024, 0))<0){
       printf("[-]Error in receiving data.\n");
-    } else if(buffer[0] = 0x03){
+    } else if(buffer[0] == 0x03){
     pthread_mutex_lock(&lock);
     char *temp = unhide_zeros(buffer); 
     struct data_pkt *pkt = deser_data_pkt(temp);      
     printf("%s\n", pkt->data);
     pthread_mutex_unlock(&lock);
+    } else if(buffer[0] == 0x02)
+    {
+      printf("ack packet data received.\n");
     }
     bzero(buffer, sizeof(buffer));
   }
@@ -157,6 +180,7 @@ void INThandler(int sig)
   char c[10];
   signal(sig,SIG_IGN);
   printf("you pressed ctrl+c. Enter :exit to quit\n");
+  bzero(buffer, sizeof(buffer));
 }
 
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)

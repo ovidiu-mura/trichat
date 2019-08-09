@@ -98,6 +98,7 @@ int send_to_all(struct data_pkt *pkt)
   strncpy(msg, pkt->src, strlen(pkt->src));
   strcat(msg, ": ");
   strcat(msg, pkt->data);
+  printf("d:%s", pkt->data);
   struct data_pkt msg_pkt;
   msg_pkt.type = DATA;
   strcpy(msg_pkt.src, pkt->src);
@@ -328,56 +329,39 @@ void* start_rtn(void* arg)
 	char *serack = ser_data(&ack, ACK);
 	char *udata = hide_zeros(serack);
         send(thr_sockfd, udata, strlen(udata), 0);
-
       } else if(ret == 1)
         ;
       // PROMPT FOR ANOTHER NAME
       else
         return thr_cleanup(d, arg, thr_sockfd);
-      /*      printf("INIT PACKET:!!!!!!!!!\n");
-              printf("type: %d\n", p->type);
-              printf("id: %d\n", p->id);
-              printf("src: %s\n", p->src);
-              printf("dst: %s\n", p->dst);*/
     }
-
     if(u[0] == 0x03)
     {
+      struct ack_pkt ack;
+      ack.type = ACK;
+      ack.id = 10;
+      strcpy(ack.src, "ssrcdataack");
+      strcpy(ack.dst, "sdstdataack");
+      char *serack = ser_data(&ack, ACK);
+      char *udata = hide_zeros(serack);
+      send(thr_sockfd, udata, strlen(udata), 0); // send ack packet for data
       struct data_pkt *pp = (struct data_pkt*)deser_data_pkt(u);
       if(strcmp(pp->dst, server_name)){
         pthread_mutex_lock(&msg_lock);
         send_msg(pp);
         pthread_mutex_unlock(&msg_lock);
-      }
-      else{
+      } else {
         pthread_mutex_lock(&msg_lock);
         send_to_all(pp);
         pthread_mutex_unlock(&msg_lock);
       }
-      /*	printf("DATA PACKET:!!!!!!!!!\n");
-          printf("type: %d\n", pp->type);
-          printf("id: %d\n", pp->id);
-          printf("src: %s\n", pp->src);
-          printf("dst: %s\n", pp->dst);
-          printf("data: %s\n", pp->data);*/
-      if(!strcmp(pp->data, ":exit"))
-      {
-        printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
-        break;
-      }
     } else if(u[0] == 0x4) {
-      printf("CLS packet received.\n");
+//      printf("CLS packet received.\n");
+      printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
+      break;
     } else
-      if(!strcmp(data, ":exit"))
-      {
-        printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
-        break;
-      } else
-      {
         bzero(data, sizeof(data));
-      }
   }
-
   return thr_cleanup(d, arg, thr_sockfd);
 }
 
