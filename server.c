@@ -153,7 +153,7 @@ int send_msg(struct data_pkt *pkt)
 int main(int argc, char *argv[])
 { 
   connection_info connection;
-
+  create_daemon();
   signal(SIGINT,INThandler);
   if (argc!=2)
   { fprintf (stderr, "Usage: %s <port>\n", argv[0]);
