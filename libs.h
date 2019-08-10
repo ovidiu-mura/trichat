@@ -17,6 +17,4 @@
 #include <aio.h>
 #include <fcntl.h>
 #include <stdbool.h>
-#include <sys/epoll.h>
-#include <errno.h>
 #include "packets.h"
