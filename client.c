@@ -92,16 +92,15 @@ int main(int argc, char *argv[])
       while(buffer[i] != ' ')
         ++i;
       strncpy(ttmp, buffer, i);
-//      buffer[i] = '\0';
       ttmp[i] = '\0';
       strcpy(pkt_3.dst, &ttmp[1]);
-//      strcpy(pkt_3.dst, &buffer[1]);
       msg_start = i+1;
-    } else {
+    }
+    else{
       strcpy(pkt_3.dst, ">>server**");
       msg_start = 0;
     }
-    while(buffer[i] != '\n')
+		while(buffer[i] != '\n')
       ++i;
     buffer[i] = '\0';
     printf("%s %d\n", &buffer[msg_start], i-msg_start);
@@ -197,6 +196,7 @@ void connect_to_server(connection_info * connection, char *serverAddr,char *port
 		perror("[-]Error in connection\n");
 		_exit(EXIT_FAILURE);
 	}
+	printf("[+]Connected to Server.\n");
 }
 
 void get_userName(char *username)
