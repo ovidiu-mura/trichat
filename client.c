@@ -204,7 +204,7 @@ void get_password(char *password)
 	char *str = "Enter your password: ";
 	write(STDOUT_FILENO,str,strlen(str));
 	fgets(password,20,stdin);
-
+	
 	if(strlen(password)>20){
 		fprintf(stderr,"password must be 20 characters or less.\n");
 		memset(password, 0, 20);
