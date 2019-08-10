@@ -638,6 +638,7 @@ void startup(connection_info * connection,int port)
   }
 }
 
+
 void* thr_cleanup(char *d, pthread_arg_t *arg, int fd)
 {
   if(fd >= 0){
