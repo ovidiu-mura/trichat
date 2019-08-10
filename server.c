@@ -2,7 +2,6 @@
 #define MAXPENDING 10
 #define MAXUSERS 20
 #define TIMEOUT 1000
-#define PORT 4444
 
 static const char *server_name = ">>server**";
 
@@ -154,7 +153,7 @@ int send_to_all(struct data_pkt *pkt)
   }
 
   printf("send_to_all\n");
-  int fd, n;
+  int n;
   char msg[1024];
 
   if(!pkt || !pkt->dst || !pkt->data)
@@ -170,7 +169,7 @@ int send_to_all(struct data_pkt *pkt)
   strcpy(msg_pkt.data, msg);
   msg_pkt.id = 1;
   char *u = ser_data(&msg_pkt, DATA);
-  char *data = hide_zeros(u);
+  char *data = hide_zeros((unsigned char*)u);
   for(int i = 0; i < num_users; ++i){
     n = send(clients[i].fd, data, 1024, 0);
     printf("msg %s sent to %s\n", msg, clients[i].name);
@@ -209,7 +208,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
   }
 
   printf("send_msg\n");
-  int fd, n;
+  int n;
   char msg[1024];
 
   if(!pkt || !pkt->dst || !pkt->data)
@@ -228,7 +227,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
       strcpy(msg_pkt.data, msg);
       msg_pkt.id = 1;
       char *u = ser_data(&msg_pkt, DATA);
-      char *data = hide_zeros(u);
+      char *data = hide_zeros((unsigned char*)u);
       n = send(send_to_fd, data, 1024, 0);
       printf("%s sent to %s\n", msg_pkt.data, msg_pkt.dst);
       if(n > 0){
@@ -252,10 +251,8 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
 }
 
 int main(int argc, char *argv[])
-{ 
-  int newSocket;
+{
   connection_info connection;
-  socklen_t addr_size;
 
   signal(SIGINT,INThandler);
   if (argc!=2)
@@ -314,7 +311,7 @@ int server_to_client_msg(int fd, struct init_pkt *pkt, char *msg)
   strcpy(msg_pkt.data, msg);
   msg_pkt.id = 1;
   char *u = ser_data(&msg_pkt, DATA);
-  char *user_data = hide_zeros(u);
+  char *user_data = hide_zeros((unsigned char*)u);
   int n = send(fd, user_data, 1024, 0);
 
   if(n > 0)
@@ -330,11 +327,13 @@ int server_to_client_msg(int fd, struct init_pkt *pkt, char *msg)
     printf("client closed connection\n");
     return -1;
   }
+  return -1;
 }
 
 void* accept_conn(void *arg)
 {
-  unsigned char *d = malloc(1024), *u;
+  unsigned char *d = malloc(1024);
+  char *u;
   int opt_arg, n, fd;
   connection_info *connection = (struct connection_info*)arg;
   char data[1024];
@@ -370,11 +369,28 @@ void* accept_conn(void *arg)
         printf("bytes received %d\n", n);
         memcpy(d, data, n);
         d[n] = '\0';
-        u = unhide_zeros((unsigned char*)d);
+        u = unhide_zeros(d);
 
         if(u[0] == 0x01){
           p = deser_init_pkt(u);
           pthread_mutex_lock(&lock);
+	        struct ack_pkt ack;
+	        ack.type = ACK;
+	        ack.id = 1;
+	        strcpy(ack.src, server_name);
+	        strcpy(ack.dst, p->src);
+	        char *serack = ser_data(&ack, ACK);
+	        char *udata = hide_zeros((unsigned char*)serack);
+          if((n = send(fd, udata, strlen(udata), 0)) < 0){
+            perror("error sending ACK packet:");
+            close(fd);
+            continue;
+          }
+          if(!n){
+            printf("client disconnected\n");
+            close(fd);
+            continue;
+          }
           char *users = get_user_list();
           if(server_to_client_msg(fd, p, users)){
             pthread_mutex_unlock(&lock);
@@ -423,7 +439,6 @@ void* accept_conn(void *arg)
           continue;
         epoll_task *task = malloc(sizeof(struct epoll_task));
         task->data.ptr = (struct client_data*)events[i].data.ptr;
-        struct client_data* cd = task->data.ptr;
         task->next = NULL;
         pthread_mutex_lock(&write_lock);
         write_queue_add(task);
@@ -443,7 +458,8 @@ void* do_reads(void *arg)
 {
   client_data *cli_data = NULL;
   int n;
-  unsigned char *d = malloc(1024), *u;
+  unsigned char *d = malloc(1024);
+  char *u;
   char data[1024];
 
   for(;;){
@@ -486,12 +502,49 @@ void* do_reads(void *arg)
         }
       }
       pthread_mutex_unlock(&lock);
+      /*if(!ret) {
+        printf("User %s has connected\n", p->src); 
+        send(thr_sockfd, udata, strlen(udata), 0);
+      } else if(ret == 1)
+        ;
+      // PROMPT FOR ANOTHER NAME
+      else
+        return thr_cleanup((char*)d, arg, thr_sockfd);
+    }
+    if(u[0] == 0x03)
+    {
+      struct ack_pkt ack;
+      ack.type = ACK;
+      ack.id = 10;
+      strcpy(ack.src, "ssrcdataack");
+      strcpy(ack.dst, "sdstdataack");
+      char *serack = ser_data(&ack, ACK);
+      char *udata = hide_zeros((unsigned char*)serack);
+      send(thr_sockfd, udata, strlen(udata), 0); // send ack packet for data
+      struct data_pkt *pp = (struct data_pkt*)deser_data_pkt((char*)u);
+      if(strcmp(pp->dst, server_name)){
+        pthread_mutex_lock(&msg_lock);
+        send_msg(pp);
+        pthread_mutex_unlock(&msg_lock);
+      } else {
+        pthread_mutex_lock(&msg_lock);
+        send_to_all(pp);
+        pthread_mutex_unlock(&msg_lock);
+      }
+    } else if(u[0] == 0x4) {
+//      printf("CLS packet received.\n");
+      printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
+      break;
+    } else
+        bzero(data, sizeof(data));
+  }
+  return thr_cleanup((char*)d, arg, thr_sockfd);*/
       free(cli_data);
       continue;
     }
     memcpy(d, data, n);
     d[n] = '\0';
-    u = unhide_zeros((unsigned char*)d);
+    u = unhide_zeros(d);
 
     if(u[0] == 0x01){
       printf("init packet received in do_reads\n");
@@ -553,10 +606,8 @@ void* do_reads(void *arg)
 
 void* do_writes(void *arg)
 {
-  int n, fd;
+  int fd;
   client_data *cli_data = NULL;
-  char msg[1024];
-  char *broadcast = "ALL";
 
   for(;;){
     pthread_mutex_lock(&write_lock);
@@ -614,7 +665,7 @@ void startup(connection_info * connection,int port)
   //ADDED
   int arg;
   epoll_fd = epoll_create(MAXUSERS*2+1);
-  if(arg = fcntl(connection->sockfd, F_GETFL) < 0){
+  if((arg = fcntl(connection->sockfd, F_GETFL)) < 0){
     perror("fcntl error with F_GETFL");
     exit(EXIT_FAILURE);
   }
@@ -689,7 +740,7 @@ bool validate_input(char *a)
 {
   int i=0;
   if (a[i] == '-') i=1;//negative number	
-  for(;a[i]!=0;i++)
+  for(;a[i]!='\0';i++)
   {
     if(!isdigit(a[i]))
       return false;

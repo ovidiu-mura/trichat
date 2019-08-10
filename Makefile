@@ -1,10 +1,10 @@
 all: client server
 
 client:
-	gcc -pthread -o client client.c utils.c
+	gcc -Wall -g -pthread -o client client.c utils.c -lcrypto
 
 server:
-	gcc -pthread -o server server.c utils.c
+	gcc -g -Wall -pthread -o server server.c utils.c
 
 clean:
 	$(RM) client server *.o

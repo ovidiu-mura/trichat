@@ -87,6 +87,7 @@ struct ack_pkt* deser_ack_pkt(char *ptr)
   memcpy(&((struct ack_pkt*)p)->id, tmp+1, 4);
   memcpy(&((struct ack_pkt*)p)->src, tmp+5, 20);
   memcpy(&((struct ack_pkt*)p)->dst, tmp+25, 20);
+  return p;
 }
 
 struct cls_pkt* deser_cls_pkt(char *ptr)
@@ -97,6 +98,7 @@ struct cls_pkt* deser_cls_pkt(char *ptr)
   memcpy(&((struct cls_pkt*)p)->id, tmp+1, 4);
   memcpy(&((struct cls_pkt*)p)->src, tmp+5, 100);
   memcpy(&((struct cls_pkt*)p)->dst, tmp+105, 100);
+  return p;
 }
 
 char * deser_data(void *pkt)
@@ -180,3 +182,72 @@ char * unhide_zeros(unsigned char *ptr)
   data[1024] = 0x0;
   return data;
 }
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <syslog.h>
+
+
+void create_daemon()
+{
+    pid_t pid;
+
+    /* Fork off the parent process */
+    pid = fork();
+
+    /* An error occurred */
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+
+    /* Success: Let the parent terminate */
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    /* On success: The child process becomes session leader */
+    if (setsid() < 0)
+        exit(EXIT_FAILURE);
+
+    /* Catch, ignore and handle signals */
+    //TODO: Implement a working signal handler */
+    signal(SIGCHLD, SIG_IGN);
+    signal(SIGHUP, SIG_IGN);
+
+    /* Fork off for the second time*/
+    pid = fork();
+
+    /* An error occurred */
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+
+    /* Success: Let the parent terminate */
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    /* Set new file permissions */
+    umask(0);
+
+    /* Change the working directory to the root directory */
+    /* or another appropriated directory */
+    chdir("/");
+
+    /* Close all open file descriptors */
+    int x;
+    for (x = sysconf(_SC_OPEN_MAX); x>=0; x--)
+    {
+        close (x);
+    }
+
+    /* Open the log file */
+    openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
+}
+
+
+
+
+
+
+

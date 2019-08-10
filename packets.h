@@ -43,3 +43,5 @@ struct cls_pkt* deser_cls_pkt(char*);
 
 char* hide_zeros(unsigned char*);
 char* unhide_zeros(unsigned char*);
+
+void create_daemon();
