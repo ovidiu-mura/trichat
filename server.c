@@ -374,6 +374,23 @@ void* accept_conn(void *arg)
         if(u[0] == 0x01){
           p = deser_init_pkt(u);
           pthread_mutex_lock(&lock);
+	        struct ack_pkt ack;
+	        ack.type = ACK;
+	        ack.id = 1;
+	        strcpy(ack.src, server_name);
+	        strcpy(ack.dst, p->src);
+	        char *serack = ser_data(&ack, ACK);
+	        char *udata = hide_zeros((unsigned char*)serack);
+          if((n = send(fd, udata, strlen(udata), 0)) < 0){
+            perror("error sending ACK packet:");
+            close(fd);
+            continue;
+          }
+          if(!n){
+            printf("client disconnected\n");
+            close(fd);
+            continue;
+          }
           char *users = get_user_list();
           if(server_to_client_msg(fd, p, users)){
             pthread_mutex_unlock(&lock);
@@ -487,6 +504,7 @@ void* do_reads(void *arg)
       pthread_mutex_unlock(&lock);
       /*if(!ret) {
         printf("User %s has connected\n", p->src); 
+<<<<<<< HEAD
 	struct ack_pkt ack;
 	ack.type = ACK;
 	ack.id = 1;
@@ -494,6 +512,8 @@ void* do_reads(void *arg)
 	strcpy(ack.dst, "destination");
 	char *serack = ser_data(&ack, ACK);
 	char *udata = hide_zeros((unsigned char*)serack);
+=======
+>>>>>>> origin/alex
         send(thr_sockfd, udata, strlen(udata), 0);
       } else if(ret == 1)
         ;

@@ -59,7 +59,11 @@ int main(int argc, char *argv[])
   int nn = recv(connection.clientSocket, buffer, 1024, 0);
   unsigned char *un = (unsigned char*)unhide_zeros((unsigned char *)buffer);
   printf("received %d bytes, %02x\n", nn, un[0]);
+<<<<<<< HEAD
   if(un[0] == 0x02)
+=======
+  if(un[0] == 0x2)
+>>>>>>> origin/alex
   {
     printf("[+]Connected to Server.\n");
   } else {
@@ -174,12 +178,12 @@ void INThandler(int sig)
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
 	get_userName(connection->username); 
-//	get_password(connection->password);
-//	if(!validate_username_password(connection->username,connection->password))
-//	{
-//		fprintf(stderr,"Invalid username or password\n");
-//		_exit(EXIT_FAILURE);
-//	}
+/*	get_password(connection->password);
+	if(!validate_username_password(connection->username,connection->password))
+	{
+		fprintf(stderr,"Invalid username or password\n");
+		_exit(EXIT_FAILURE);
+	}*/
 	connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(connection->clientSocket < 0){
 		perror("[-]Error in connection.\n");
@@ -270,7 +274,6 @@ bool validate_username_password(char *username,char *password)
         }
 	return false;
 }
-
 /*function to check numeric input*/
 bool validate_input(char *a)
 {
