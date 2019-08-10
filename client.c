@@ -70,18 +70,23 @@ int main(int argc,char *argv[])
 
 	struct data_pkt pkt_3;
   int msg_start = 0;
+  char ttmp[20];
+
 	while(1){
 		read(STDIN_FILENO, buffer, 1024);
 		int i = 0;
     if(buffer[0] == '@'){
       while(buffer[i] != ' ')
         ++i;
-      buffer[i] = '\0';
-      strcpy(pkt_3.dst, &buffer[1]);
+      strncpy(ttmp, buffer, i);
+      ttmp[i] = '\0';
+      strcpy(pkt_3.dst, &ttmp[1]);
       msg_start = i+1;
     }
-    else
+    else{
       strcpy(pkt_3.dst, ">>server**");
+      msg_start = 0;
+    }
 		while(buffer[i] != '\n')
       ++i;
 		buffer[i] = '\0';

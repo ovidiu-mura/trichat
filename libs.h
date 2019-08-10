@@ -14,7 +14,9 @@
 #include <pthread.h>
 #include <libgen.h>
 #include <sys/select.h>
+#include <sys/epoll.h>
 #include <aio.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <errno.h>
 #include "packets.h"

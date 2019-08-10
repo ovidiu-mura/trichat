@@ -521,6 +521,7 @@ void* do_reads(void *arg)
         continue;
       }
       if(strcmp(cli_data->pkt->dst, server_name)){ // Message to a particular client
+        printf("msg @524: %s\n", cli_data->pkt->data);
         cli_data->fd = get_clientfd(cli_data->pkt->dst);
         if(fd == -1){
           printf("User %s not available", cli_data->pkt->dst);
@@ -534,10 +535,11 @@ void* do_reads(void *arg)
         printf("added %d to write list @522\n", cli_data->fd);
       }
       else {   // Message to all
+        printf("msg @538: %s\n", cli_data->pkt->data);
         ev.data.ptr = cli_data;
         ev.events = EPOLLOUT | EPOLLET;
         for(int i = 0; i < num_users; ++i){
-          if(clients[i].online && !strcmp(clients[i].name, cli_data->pkt->src)){
+          if(clients[i].online && !strcmp(clients[i].name, cli_data->pkt->src)) {
             if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
               perror("epoll_ctl error:");
             printf("added %d to write list @531\n", clients[i].fd);
@@ -568,6 +570,7 @@ void* do_writes(void *arg)
     free(task);
     pthread_mutex_unlock(&write_lock);
     pthread_mutex_lock(&msg_lock);
+    printf("msg: %s\n", cli_data->pkt->data);
     if(!strcmp(cli_data->pkt->dst, server_name)){
       printf("broadcasting msg\n");
       if(send_to_all(cli_data->pkt))
