@@ -34,12 +34,13 @@ typedef struct client_info {
   int fd;
   char *name;
   int online;
-  struct sockaddr_in addr;
+  struct sockaddr_in addr; // ADDED
 }client_info;
 
 //ADDED
 typedef struct client_data {
   int fd;
+  unsigned int size;
   struct data_pkt *pkt;
   struct init_pkt *init;
 }client_data;
@@ -145,19 +146,6 @@ int new_user(char *name, int fd)
   return 0; 
 }
 
-void logout(int fd)
-{
-  for(int i = 0; i < num_users; ++i){
-    if(clients[i].fd == fd){
-      close(fd);
-      clients[i].online = 0;
-      --num_users;
-      printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
-      break; 
-    }
-  }
-}
-
 int send_to_all(struct data_pkt *pkt)
 {
   if(pthread_mutex_trylock(&msg_lock) != EBUSY){
@@ -191,12 +179,12 @@ int send_to_all(struct data_pkt *pkt)
       ev.events = EPOLLIN | EPOLLET;
       if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
         perror("epoll_ctl error: ");
+      printf("added %d to read list @183\n", clients[i].fd);
     }
   }
   return 0;
 } 
 
-// Searches list of users to match name with a file descriptor
 int get_clientfd(char *user_to_find)
 {
   if(!user_to_find)
@@ -250,8 +238,10 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
           perror("epoll_ctl error: ");
           return -1;
         }
-        else
+        else{
+          printf("added %d to read list @241\n", send_to_fd);
           return 0;
+        }
       }
       printf("error sending message\n");
       return -1;
@@ -336,9 +326,8 @@ int server_to_client_msg(int fd, struct init_pkt *pkt, char *msg)
   }
 
   if(!n){
-    pthread_mutex_lock(&lock);
-    logout(fd);
-    pthread_mutex_unlock(&lock);
+    close(fd);
+    printf("client closed connection\n");
     return -1;
   }
 }
@@ -354,7 +343,8 @@ void* accept_conn(void *arg)
   {
     if(!(ready = epoll_wait(epoll_fd, events, MAXUSERS, TIMEOUT)))
       continue;
-    printf("Ready: %d\n", ready);
+
+    printf("READY: %d\n", ready);
 
     for(int i = 0; i < ready; ++i){
       if(events[i].data.fd == connection->sockfd) {
@@ -368,13 +358,12 @@ void* accept_conn(void *arg)
         if(n < 0){
           if(errno == ECONNRESET)
             close(fd);
-          perror("error receiving init packet");
+          strerror(errno);
           continue;
         }
         else if(!n){
-          pthread_mutex_lock(&lock);
-          logout(fd);
-          pthread_mutex_unlock(&lock);
+          close(fd);
+          printf("client closed connection\n");
           continue;
         }
 
@@ -417,6 +406,7 @@ void* accept_conn(void *arg)
           ev.events = EPOLLIN | EPOLLET;
           if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
             perror("epoll_ctl error: ");
+          printf("added %d to read list @405\n", fd);
         }
       } 
       else if(events[i].events & EPOLLIN && is_valid_fd(events[i].data.fd)){
@@ -471,15 +461,13 @@ void* do_reads(void *arg)
     if(n < 0){
       if(errno == ECONNRESET)
         close(fd);
-
+      strerror(errno);
       free(cli_data);
       continue;
     }
     else if(!n){
+      close(fd);
       printf("client closed connection\n");
-      pthread_mutex_lock(&lock);
-      logout(fd);
-      pthread_mutex_unlock(&lock);
       free(cli_data);
       continue;
     }
@@ -487,8 +475,16 @@ void* do_reads(void *arg)
     printf("bytes received %d\n", n);
     if(!strcmp(data, ":exit"))
     {
+      printf("exiting at 478\n");
       pthread_mutex_lock(&lock);
-      logout(fd);
+      for(int i = 0; i < num_users; ++i){
+        if(!strcmp(cli_data->pkt->src, clients[i].name)){
+          clients[i].online = 0;
+          printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
+          --num_users;
+          break;
+        }
+      }
       pthread_mutex_unlock(&lock);
       free(cli_data);
       continue;
@@ -498,16 +494,28 @@ void* do_reads(void *arg)
     u = unhide_zeros((unsigned char*)d);
 
     if(u[0] == 0x01){
+      printf("init packet received in do_reads\n");
+      free(cli_data);
       continue;
     }
 
     if(u[0] == 0x03)
     {
+      printf("data packet received in do_reads\n");
+      cli_data->size = n;
       cli_data->pkt = (struct data_pkt*)deser_data_pkt(u);
       if(!strcmp(cli_data->pkt->data, ":exit"))
       {
+        printf("exiting at 509\n");
         pthread_mutex_lock(&lock);
-        logout(fd);
+        for(int i = 0; i < num_users; ++i){
+          if(!strcmp(cli_data->pkt->src, clients[i].name)){
+            clients[i].online = 0;
+            printf("Disconnected %s\n", inet_ntoa(clients[i].addr.sin_addr));
+            --num_users;
+            break;
+          }
+        }
         pthread_mutex_unlock(&lock);
         free(cli_data);
         continue;
@@ -523,6 +531,7 @@ void* do_reads(void *arg)
         ev.events = EPOLLOUT | EPOLLET;
         if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, cli_data->fd, &ev) < 0)
           perror("epoll_ctl error:");
+        printf("added %d to write list @522\n", cli_data->fd);
       }
       else {   // Message to all
         ev.data.ptr = cli_data;
@@ -531,13 +540,13 @@ void* do_reads(void *arg)
           if(clients[i].online && !strcmp(clients[i].name, cli_data->pkt->src)){
             if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
               perror("epoll_ctl error:");
+            printf("added %d to write list @531\n", clients[i].fd);
           }
         }
       }
     }
-   // bzero(data, sizeof(data));
+//    bzero(data, sizeof(data));
   }
-  //cleanup thread
 }
 
 void* do_writes(void *arg)
@@ -557,7 +566,6 @@ void* do_writes(void *arg)
     epoll_task *task = to_write;
     to_write = to_write->next;
     free(task);
-    printf("src: %s dst: %s msg: %s\n", cli_data->pkt->src, cli_data->pkt->dst, cli_data->pkt->data);
     pthread_mutex_unlock(&write_lock);
     pthread_mutex_lock(&msg_lock);
     if(!strcmp(cli_data->pkt->dst, server_name)){
