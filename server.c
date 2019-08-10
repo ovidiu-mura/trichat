@@ -440,8 +440,8 @@ void* accept_conn(void *arg)
         pthread_cond_broadcast(&write_cond);
         pthread_mutex_unlock(&write_lock);
       }  
-      else
-        perror("something went wrong");
+     else
+       printf("user exiting\n");
     }
   }
 
@@ -471,7 +471,6 @@ void* do_reads(void *arg)
     if(n < 0){
       if(errno == ECONNRESET)
         close(fd);
-
       free(cli_data);
       continue;
     }
@@ -498,6 +497,7 @@ void* do_reads(void *arg)
     u = unhide_zeros((unsigned char*)d);
 
     if(u[0] == 0x01){
+      free(cli_data);
       continue;
     }
 
@@ -656,7 +656,7 @@ void* thr_cleanup(char *d, pthread_arg_t *arg, int fd)
 
 char* get_user_list()
 {
-  int num = 0;
+  int num = 1;
   char *user_list = malloc(1024);
   memset(user_list, '\0', 1024);
 
