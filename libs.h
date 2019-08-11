@@ -12,5 +12,16 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
+#include<stdbool.h>
 #include <libgen.h>
+#include <sys/select.h>
+#include <sys/epoll.h>
+#include <aio.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <openssl/opensslv.h>
+#include <openssl/rand.h>
+#include <openssl/sha.h>
+#include <openssl/evp.h>
+#include <errno.h>
 #include "packets.h"

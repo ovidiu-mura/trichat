@@ -39,7 +39,9 @@ char * ser_data(void *, char);
 char * deser_data(void *);
 struct init_pkt* deser_init_pkt(char*);
 struct data_pkt* deser_data_pkt(char*);
-
+struct cls_pkt* deser_cls_pkt(char*);
 
 char* hide_zeros(unsigned char*);
 char* unhide_zeros(unsigned char*);
+
+void create_daemon();
