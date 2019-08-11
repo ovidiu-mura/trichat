@@ -202,14 +202,21 @@ void connect_to_server(connection_info * connection, char *serverAddr,char *port
 void get_userName(char *username)
 {
 	char *str= "Enter a username: ";
+  int i = 0;
+
 	write(STDOUT_FILENO,str,strlen(str));
 	read(STDIN_FILENO,username,20);
+  while(username[i] != '\n')
+    ++i;
+  username[i] = '\0';
+  
 	if(strlen(username)>20){
 		fprintf(stderr,"username must be 20 characters or less.\n");
 		memset(username, 0, 20);
 		get_userName(username);
 	}
 }
+
 void get_password(char *password)
 {
 	char *str = "Enter your password: ";

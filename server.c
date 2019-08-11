@@ -234,7 +234,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
 // Sends a message directly from the server to a client
 int server_to_client_msg(int fd, struct init_pkt *pkt, char *msg)
 {
-  if(!p || !msg || fd < 0)
+  if(!pkt || !msg || fd < 0)
     return -1;
 
   struct data_pkt msg_pkt;
@@ -334,7 +334,6 @@ int main(int argc, char *argv[])
 void* accept_conn(void *arg)
 {
   unsigned char *d = malloc(1024);
-  memset(d, '\0', 1024);
   char *u;
   int opt_arg, n, fd;
   connection_info *connection = (struct connection_info*)arg;
@@ -375,6 +374,11 @@ void* accept_conn(void *arg)
         // Init packet has been received, server sends back ack packet
         if(u[0] == 0x01){
           p = deser_init_pkt(u);
+          printf("INIT PACKET:!!!!!!!!!\n");
+          printf("type: %d\n", p->type);
+          printf("id: %d\n", p->id);
+          printf("src: %s\n", p->src);
+          printf("dst: %s\n", p->dst);
           pthread_mutex_lock(&lock);
 	        struct ack_pkt ack;
 	        ack.type = ACK;
@@ -393,15 +397,15 @@ void* accept_conn(void *arg)
             close(fd);
             continue;
           }
-          char *users = get_user_list();
-          if(server_to_client_msg(fd, p, users)){
-            free(users);
+          char *user_list = get_user_list();
+          if(server_to_client_msg(fd, p, user_list)){
+            free(user_list);
             pthread_mutex_unlock(&lock);
             printf("error sending message to client %s\n", p->src);
             continue;
           }
+          free(user_list);
           int ret = new_user(p->src, fd);
-          free(users);
           pthread_mutex_unlock(&lock);
           if(!ret)
             printf("User %s has connected on fd %d\n", p->src, fd); 
@@ -409,7 +413,6 @@ void* accept_conn(void *arg)
             continue;
           // PROMPT FOR ANOTHER NAME
           else{
-            memset(d, '\0', 1024);
             continue;
           }
 
@@ -466,7 +469,6 @@ void* do_reads(void *arg)
   client_data *cli_data = NULL;
   int n;
   unsigned char *d = malloc(1024);
-  memset(d, '\0', 1024);
   char *u;
   char data[1024];
 
