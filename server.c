@@ -121,8 +121,9 @@ int set_nonblocking(int fd)
 }
 
 // Adds a new user, malloc'ing and populating relevant fields and incremented number of connected users
-int new_user(char *name, int fd)
+int new_user(char *name, int fd, struct sockaddr_in cAddr)
 {
+//  printf("%s:%d\n", inet_ntoa(cAddr.sin_addr), ntohs(cAddr.sin_port));
   if(pthread_mutex_trylock(&lock) != EBUSY){
     printf("new_user must be holding lock\n");
     return -1;
@@ -145,8 +146,7 @@ int new_user(char *name, int fd)
       if(clients[i].online){
         printf("%s already taken. Please enter another username: ", name);
         return 0;
-      }
-      else{
+      } else {
         clients[i].online = 1;
         if(clients[i].fd != fd){ // if fd is different from before
           if(set_nonblocking(fd) == -1){
@@ -159,7 +159,7 @@ int new_user(char *name, int fd)
       }
     }
   }
-
+  
   clients[num_users].name = malloc(strlen(name)+1);
   if(!clients[num_users].name){
     perror("malloc for new client name failed");
@@ -173,9 +173,11 @@ int new_user(char *name, int fd)
   }
   clients[num_users].online = 1;
   printf("New client: %s fd: %d\n", clients[num_users].name, clients[num_users].fd);
+ 
+  memcpy(&clients[num_users].addr, &cAddr, sizeof(cAddr));
+  printf("%s:%d\n", inet_ntoa(cAddr.sin_addr), ntohs(cAddr.sin_port));
   ++num_users;
-
-  return 0; 
+  return 0;
 }
 
 // Broadcasts message to all online users
@@ -224,13 +226,10 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
     printf("must be holding msg_lock\n");
     return -1;
   }
-
   int n;
   char msg[1024];
-
   if(!pkt || !pkt->dst || !pkt->data)
     return -1;
-
   for(int i = 0; i < MAXUSERS; ++i) {
     if(!(clients+i)) break; // avoids seg fault
     if(!clients[i].online) continue;
@@ -389,6 +388,7 @@ void* accept_conn(void *arg)
       if(events[i].data.fd == connection->sockfd) {
         len = sizeof(connection->serverAddr);
         fd = accept(connection->sockfd, (struct sockaddr*)&connection->serverAddr, &len);
+	printf("%s:%d\n", inet_ntoa((connection->serverAddr).sin_addr), ntohs((connection->serverAddr).sin_port));
         if(fd == EAGAIN){
           printf("already added %d", fd);
           continue;
@@ -441,7 +441,7 @@ void* accept_conn(void *arg)
             continue;
           }
           free(user_list);
-          int ret = new_user(p->src, fd);
+          int ret = new_user(p->src, fd, connection->serverAddr);
           if(!ret){
             printf("User %s has connected on fd %d\n", p->src, fd); 
             struct data_pkt *pkt = malloc(sizeof(struct data_pkt));
