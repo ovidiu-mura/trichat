@@ -103,7 +103,6 @@ int main(int argc, char *argv[])
 		while(buffer[i] != '\n')
       ++i;
     buffer[i] = '\0';
-    printf("%s %d\n", &buffer[msg_start], i-msg_start);
     if(strcmp(buffer, ":exit") == 0) {
       isExit = 1;
     }
@@ -174,12 +173,6 @@ void INThandler(int sig)
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
 	get_userName(connection->username); 
-/*	get_password(connection->password);
-	if(!validate_username_password(connection->username,connection->password))
-	{
-		fprintf(stderr,"Invalid username or password\n");
-		_exit(EXIT_FAILURE);
-	}*/
 	connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(connection->clientSocket < 0){
 		perror("[-]Error in connection.\n");
@@ -217,7 +210,7 @@ void get_userName(char *username)
 	}
 }
 
-void get_password(char *password)
+/*void get_password(char *password)
 {
 	char *str = "Enter your password: ";
 	write(STDOUT_FILENO,str,strlen(str));
@@ -229,6 +222,7 @@ void get_password(char *password)
 		get_password(password);
 	}
 }
+
 bool validate_username_password(char *username,char *password)
 {
         char uname[20];
@@ -255,7 +249,7 @@ bool validate_username_password(char *username,char *password)
 	FILE *fp = fopen("password.txt","r");
 	if ( fp != NULL )
         {
-         while (!feof(fp)) /* read till end of file */
+         while (!feof(fp))  read till end of file 
          {
             fscanf (fp,"%s %s",uname,hashfilepass);
 
@@ -275,7 +269,7 @@ bool validate_username_password(char *username,char *password)
          perror ( "file error" ); 
         }
 	return false;
-}
+}*/
 
 /*function to check numeric input*/
 bool validate_input(char *a)
