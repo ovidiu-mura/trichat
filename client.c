@@ -84,13 +84,20 @@ int main(int argc, char *argv[])
   int msg_start = 0;
   bool isExit = false;
   char ttmp[20];
-
+  int space_count = 0;
   while(1){
     read(STDIN_FILENO, buffer, 1024);
     int i = 0;
     if(buffer[0] == '@'){
       while(buffer[i] != ' ')
+      {
         ++i;
+	space_count += 1;
+	if(buffer[i] == '\n')
+	  break;
+      }
+      if(space_count == 0)
+        continue;
       strncpy(ttmp, buffer, i);
       ttmp[i] = '\0';
       strcpy(pkt_3.dst, &ttmp[1]);
