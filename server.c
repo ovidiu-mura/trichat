@@ -320,16 +320,16 @@ int is_valid_fd(int fd)
 {
   if(fd < 0){
     printf("invalid fd %d\n", fd);
-    return 0;
+    return -1;
   }
 
   for(int i = 0; i < MAXUSERS; ++i){
-    if(clients[i].fd == fd && clients[i].online)
-      return fd;
+    if(clients[i].fd == fd)
+      return clients[i].online;
   }
 
   printf("invalid fd %d\n", fd);
-  return 0;
+  return -1;
 }
 
 int main(int argc, char *argv[])
@@ -477,7 +477,7 @@ void* accept_conn(void *arg)
         pthread_mutex_unlock(&read_lock);
       } 
       // fd is ready to be written to
-      else if(events[i].events & EPOLLOUT){
+      else if(events[i].events & EPOLLOUT && is_valid_fd(events[i].data.fd)){
         if(!events[i].data.ptr)
           continue;
         epoll_task *task = malloc(sizeof(struct epoll_task));
@@ -545,9 +545,11 @@ void* do_reads(void *arg)
     pthread_mutex_unlock(&read_lock);
     n = recv(fd, data, 1024, 0);
     if(n < 0){
+      if(n == EBADF) // Means user has exited 
+        continue;
       if(errno == ECONNRESET)
         close(fd);
-      printf("error reading from fd %d", fd);
+      printf("error reading from fd %d\n", fd);
       continue;
     }
     else if(!n){
