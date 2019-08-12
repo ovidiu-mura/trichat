@@ -183,15 +183,6 @@ char * unhide_zeros(unsigned char *ptr)
   return data;
 }
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <syslog.h>
-
-
 void create_daemon()
 {
     pid_t pid;
@@ -199,7 +190,7 @@ void create_daemon()
     /* Fork off the parent process */
     pid = fork();
 
-    /* An error occurred */
+    /* Check if error occurred in chld */
     if (pid < 0)
         exit(EXIT_FAILURE);
 
@@ -213,6 +204,12 @@ void create_daemon()
 
     /* Catch, ignore and handle signals */
     //TODO: Implement a working signal handler */
+    struct sigaction act;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    act.sa_handler = sigusr1;
+    sigaction(SIGUSR1, &act, NULL);
+    //signal(SIGUSR1, sigusr1);
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
@@ -240,14 +237,25 @@ void create_daemon()
     {
         close (x);
     }
-
+    setlogmask(LOG_UPTO(LOG_DEBUG));
     /* Open the log file */
-    openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
+    openlog ("trichat", LOG_CONS|LOG_PID|LOG_NDELAY, LOG_LOCAL1);
+    pid = getpid();
+    shmp[1] = 33333;
+    shmp[2] = pid;
+    while(1)
+      pause();
 }
 
+void *create_sm(size_t size)
+{
+  int prot = PROT_READ|PROT_WRITE;
+  int visible = MAP_ANONYMOUS|MAP_SHARED;
+  return mmap(NULL, size, prot, visible, -1, 0);
+}
 
-
-
-
-
+void sigusr1()
+{
+  syslog(LOG_INFO, "%s", ptr);
+}
 

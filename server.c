@@ -6,6 +6,12 @@
 static const char *server_name = ">>server**";
 static const char *msg_to_all = ">>broadcast**";
 
+/*char *ptr;
+pid_t *pp;
+int *shmp;
+void sigusr1();
+*/
+
 // For initial server connection
 typedef struct connection_info
 {
@@ -334,6 +340,33 @@ int is_valid_fd(int fd)
 
 int main(int argc, char *argv[])
 {
+  ptr = create_sm(1024);
+  pp = (pid_t*) ptr+100;
+  strcpy(ptr, "trichat server started");
+  int shmid = shmget(0x1234, 20, 0644|IPC_CREAT);
+  shmp = shmat(shmid, NULL, 0);
+  shmp[1] = 55555;
+  pid_t pid = fork();
+  if(pid == 0)
+  {
+    create_daemon();
+    memcpy(pp, "456", 3);
+    shmp[1] = 33333;
+    exit(2);
+  }
+
+  while(shmp[1] != 33333);
+  printf("shmp: %d\n", shmp[1]);
+  printf("shared text: %d\n", *pp);
+//  strcpy(ptr, "new shared text");
+  kill(shmp[2], SIGUSR1);
+  pid_t pd = shmp[2];
+  wait(&pd);
+  printf("daemon pid: %d", shmp[2]);
+  shmdt(shmp);
+  shmctl(shmid, IPC_RMID, 0);
+  munmap(ptr, 1024);
+
   connection_info connection;
 
   signal(SIGINT,INThandler);
@@ -362,6 +395,7 @@ int main(int argc, char *argv[])
   pthread_join(read_thr, 0);
   pthread_join(write_thr, 0);
   printf("Server exiting...main");
+  
   return 0;
 }
 
