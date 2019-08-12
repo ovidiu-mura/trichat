@@ -123,7 +123,6 @@ int set_nonblocking(int fd)
 // Adds a new user, malloc'ing and populating relevant fields and incremented number of connected users
 int new_user(char *name, int fd, struct sockaddr_in cAddr)
 {
-//  printf("%s:%d\n", inet_ntoa(cAddr.sin_addr), ntohs(cAddr.sin_port));
   if(pthread_mutex_trylock(&lock) != EBUSY){
     printf("new_user must be holding lock\n");
     return -1;
@@ -175,7 +174,6 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
   printf("New client: %s fd: %d\n", clients[num_users].name, clients[num_users].fd);
  
   memcpy(&clients[num_users].addr, &cAddr, sizeof(cAddr));
-  printf("%s:%d\n", inet_ntoa(cAddr.sin_addr), ntohs(cAddr.sin_port));
   ++num_users;
   return 0;
 }
@@ -332,8 +330,48 @@ int is_valid_fd(int fd)
   return -1;
 }
 
+void start_log_daemon()
+{
+  ptr = create_sm(1024);
+  strcpy(ptr, "trichat server started");
+  shmid = shmget(0x1234, 20, 0644|IPC_CREAT);
+  shmp = shmat(shmid, NULL, 0);
+  shmp[1] = 55555;
+  pid_t pid = fork();
+  if(pid == 0)
+  {
+    create_daemon();
+    shmp[1] = 33333;
+//    exit(2);
+  }
+  while(shmp[1] != 33333);
+  printf("shmp: %d\n", shmp[1]);
+//  strcpy(ptr, "new shared text");
+  kill(shmp[2], SIGUSR1);
+  pid_t pd = shmp[2];
+  wait(&pd);
+  printf("daemon pid: %d", shmp[2]);
+}
+
+void server_log(char *msg)
+{
+  strncpy(ptr, msg, strlen(msg));
+  ptr[strlen(msg)] = '\0';
+  kill(shmp[2], SIGUSR1);
+  printf("ptr: %s\n", ptr);
+}
+
+void stop_log_daemon()
+{
+  kill(shmp[2], SIGKILL);
+  shmdt(shmp);
+  shmctl(shmid, IPC_RMID, 0);
+  munmap(ptr, 1024);
+}
+
 int main(int argc, char *argv[])
 {
+  start_log_daemon();
   connection_info connection;
 
   signal(SIGINT,INThandler);
@@ -362,6 +400,7 @@ int main(int argc, char *argv[])
   pthread_join(read_thr, 0);
   pthread_join(write_thr, 0);
   printf("Server has disconnected\n");
+  stop_log_daemon();
   exit(EXIT_SUCCESS);
 }
 
@@ -388,7 +427,12 @@ void* accept_conn(void *arg)
       if(events[i].data.fd == connection->sockfd) {
         len = sizeof(connection->serverAddr);
         fd = accept(connection->sockfd, (struct sockaddr*)&connection->serverAddr, &len);
-	printf("%s:%d\n", inet_ntoa((connection->serverAddr).sin_addr), ntohs((connection->serverAddr).sin_port));
+	char *ipv4 = inet_ntoa((connection->serverAddr).sin_addr);
+	char por[10];
+	sprintf(por, "%d", ntohs((connection->serverAddr).sin_port));
+	char *msg = strcat(strcat(ipv4, ":"), por);
+	msg[21] = '\0';
+	server_log(msg);
         if(fd == EAGAIN){
           printf("already added %d", fd);
           continue;

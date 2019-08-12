@@ -183,6 +183,12 @@ char * unhide_zeros(unsigned char *ptr)
   return data;
 }
 
+void kill_daemon()
+{
+  exit(0);
+}
+
+
 void create_daemon()
 {
     pid_t pid;
@@ -209,7 +215,7 @@ void create_daemon()
     act.sa_flags = 0;
     act.sa_handler = sigusr1;
     sigaction(SIGUSR1, &act, NULL);
-    //signal(SIGUSR1, sigusr1);
+    signal(SIGKILL, kill_daemon);
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 

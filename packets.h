@@ -49,5 +49,5 @@ void sigusr1();
 void *create_sm(size_t);
 
 char *ptr;
-pid_t *pp;
 int *shmp;
+int shmid;
