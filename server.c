@@ -41,11 +41,12 @@ typedef struct client_info {
 }client_info;
 
 // Holds data to be transmitted in I/O threads
-typedef struct client_data {
+typedef struct msg_data {
   int fd;
   struct data_pkt *pkt;
+  struct cls_pkt *cp;
   struct init_pkt *init;
-}client_data;
+}msg_data;
 
 typedef struct epoll_task {
   epoll_data_t data;
@@ -361,8 +362,8 @@ int main(int argc, char *argv[])
   pthread_join(connect_thr, 0);
   pthread_join(read_thr, 0);
   pthread_join(write_thr, 0);
-  printf("Server exiting...main");
-  return 0;
+  printf("Server has disconnected\n");
+  exit(EXIT_SUCCESS);
 }
 
 /* Starting routine for connection thread:
@@ -377,6 +378,9 @@ void* accept_conn(void *arg)
 
   for(;;)
   {
+    if(num_users == -1)
+      break;
+
     if(!(ready = epoll_wait(epoll_fd, events, MAXUSERS, TIMEOUT)))
       continue;
 
@@ -477,7 +481,7 @@ void* accept_conn(void *arg)
         if(!events[i].data.ptr)
           continue;
         epoll_task *task = malloc(sizeof(struct epoll_task));
-        task->data.ptr = (struct client_data*)events[i].data.ptr;
+        task->data.ptr = (struct msg_data*)events[i].data.ptr;
         task->next = NULL;
         pthread_mutex_lock(&write_lock);
         write_queue_add(task);
@@ -489,38 +493,11 @@ void* accept_conn(void *arg)
     }
   }
 
+  pthread_cancel(read_thr);
+  pthread_cancel(write_thr);
   printf("Server exiting...\n");
   return thr_cleanup(d, connection->sockfd);
 }
-
-// Notifies all online users when a new user has connected or a user has exited the server
-/*void notify_users(struct data_pkt *pkt)
-  {
-  if(pthread_mutex_trylock(&msg_lock) != EBUSY){
-  printf("must be holding msg_lock\n");
-  return;
-  }
-
-  char *u = ser_data(&pkt, DATA);
-  char *data = hide_zeros((unsigned char*)u);
-  for(int i = 0; i < MAXUSERS; ++i){
-  if(!(clients+i)) break; // Avoids seg fault
-  if(!clients[i].online || !strcmp(pkt->src, clients[i].name)) continue;
-  strcpy(pkt->dst, clients[i].name);
-  printf("trying to send to %s on fd %d\n", pkt->dst, clients[i].fd);
-  int n = send(clients[i].fd, data, 1024, 0);
-  printf("after sending\n");
-  if(n > 0){
-  printf("msg %s sent to %s\n", pkt->data, clients[i].name);
-  ev.data.fd = clients[i].fd;
-  ev.events = EPOLLIN | EPOLLET;
-  if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
-  perror("epoll_ctl error: ");
-  }
-  else
-  perror("send error");
-  }
-  }*/
 
 void do_on_exit(int fd)
 {
@@ -534,6 +511,7 @@ void do_on_exit(int fd)
       close(clients[i].fd);
       printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
       --num_users;
+      if(!num_users) --num_users; // If only active user, decrement to -1 so server exits
       pkt->type = DATA;
       pkt->id = 1;
       strcpy(pkt->dst, msg_to_all);
@@ -550,7 +528,7 @@ void do_on_exit(int fd)
 
 void* do_reads(void *arg)
 {
-  client_data *cli_data = NULL;
+  msg_data *msg_data = NULL;
   int n;
   unsigned char *d = malloc(1024);
   char *u;
@@ -580,113 +558,61 @@ void* do_reads(void *arg)
       continue;
     }
 
-    /* printf("bytes received %d\n", n);
-       if(!strcmp(data, ":exit"))
-       {
-       pthread_mutex_lock(&lock);
-       for(int i = 0; i < MAXUSERS; ++i){
-       if(!(clients+i)) break;
-       if(!clients[i].online)
-       continue;
-       if(!strcmp(cli_data->pkt->src, clients[i].name)){
-       clients[i].online = 0;
-       close(clients[i].fd);
-       printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
-       --num_users;
-       strcpy(cli_data->pkt->data, " has exited the chat\n");
-       pthread_mutex_lock(&msg_lock);
-       send_to_all(cli_data->pkt);
-       pthread_mutex_unlock(&msg_lock);
-       break;
-       }
-       }
-       pthread_mutex_unlock(&lock);
-       free(cli_data);
-       continue;
-       }
-       if(u[0] == 0x03)
-       {
-       struct ack_pkt ack;
-       ack.type = ACK;
-       ack.id = 10;
-       strcpy(ack.src, "ssrcdataack");
-       strcpy(ack.dst, "sdstdataack");
-       char *serack = ser_data(&ack, ACK);
-       char *udata = hide_zeros((unsigned char*)serack);
-       send(thr_sockfd, udata, strlen(udata), 0); // send ack packet for data
-       struct data_pkt *pp = (struct data_pkt*)deser_data_pkt((char*)u);
-       } else if(u[0] == 0x4) {
-       printf("CLS packet received.\n");
-       printf("Disconnected %s:%d\n", inet_ntoa(thr_addr.sin_addr), ntohs(thr_addr.sin_port));
-       break;
-       } else
-       bzero(data, sizeof(data));
-       return thr_cleanup((char*)d, arg, thr_sockfd);*/
     memcpy(d, data, n);
     d[n] = '\0';
     u = unhide_zeros(d);
 
     if(u[0] == 0x01) continue; // Already received init packet in connect_thr, shouldn't receive another
 
+    msg_data = malloc(sizeof(struct msg_data));
+    msg_data->fd = fd;
+
     if(u[0] == 0x03) // Received msg from client
     {
-      cli_data = malloc(sizeof(struct client_data));
-      cli_data->fd = fd;
-      cli_data->pkt = (struct data_pkt*)deser_data_pkt(u);
-      if(!strcmp(cli_data->pkt->data, ":exit"))
+      msg_data->pkt = (struct data_pkt*)deser_data_pkt(u);
+      if(!strcmp(msg_data->pkt->data, ":exit"))
       {
         pthread_mutex_lock(&lock);
         do_on_exit(fd);
-        /* for(int i = 0; i < MAXUSERS; ++i){
-           if(!clients[i].online){
-           ++i;
-           continue;
-           }
-           if(!strcmp(cli_data->pkt->src, clients[i].name)){
-           clients[i].online = 0;
-           close(clients[i].fd);
-           printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
-           --num_users;
-           strcpy(cli_data->pkt->data, " has exited the chat\n");
-           pthread_mutex_lock(&msg_lock);
-           send_to_all(cli_data->pkt);
-           pthread_mutex_lock(&msg_lock);
-           break;
-           }
-           ++i;
-           }*/
         pthread_mutex_unlock(&lock);
-        free(cli_data);
+        free(msg_data);
         continue;
       }
-      if(strcmp(cli_data->pkt->dst, server_name)){ // Message to a particular client
-        cli_data->fd = get_clientfd(cli_data->pkt->dst);
+      if(strcmp(msg_data->pkt->dst, server_name)){ // Message to a particular client
+        msg_data->fd = get_clientfd(msg_data->pkt->dst);
         if(fd == -1){
-          printf("User %s not available", cli_data->pkt->dst);
-          free(cli_data);
+          printf("User %s not available", msg_data->pkt->dst);
+          free(msg_data);
           continue;
         }
-        ev.data.ptr = cli_data; // Contains message packet
+        ev.data.ptr = msg_data; // Contains message packet
         ev.events = EPOLLOUT | EPOLLET;
-        if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, cli_data->fd, &ev) < 0) // Change fd for destination client from read list to write list
+        if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, msg_data->fd, &ev) < 0) // Change fd for destination client from read list to write list
           perror("epoll_ctl error:");
       }
       else {   // Message to all
-        ev.data.ptr = cli_data;
+        ev.data.ptr = msg_data;
         ev.events = EPOLLOUT | EPOLLET;
         for(int i = 0; i < MAXUSERS; ++i){
           if(!clients[i].online) continue;
-          if(!strcmp(clients[i].name, cli_data->pkt->src)) {
+          if(!strcmp(clients[i].name, msg_data->pkt->src)) {
             if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
               perror("epoll_ctl error:");
           }
         }
       }
     }
+    else if(u[0] == 0x04){ // Close packet
+      pthread_mutex_lock(&lock);
+      do_on_exit(msg_data->fd);
+      free(msg_data);
+      pthread_mutex_unlock(&lock);
+    }
+      
     bzero(data, sizeof(data));
   }
   printf("read thread shutting down...\n");
-  if(cli_data) free(cli_data);
+  if(msg_data) free(msg_data);
   if(d) free(d);
   return 0;
 }
@@ -694,37 +620,37 @@ void* do_reads(void *arg)
 void* do_writes(void *arg)
 {
   int fd;
-  client_data *cli_data = NULL;
+  msg_data *msg_data = NULL;
 
   for(;;){
     pthread_mutex_lock(&write_lock);
     while(!to_write)
       pthread_cond_wait(&write_cond, &write_lock);
-    cli_data = (struct client_data*)to_write->data.ptr;
-    if(!cli_data)
+    msg_data = (struct msg_data*)to_write->data.ptr;
+    if(!msg_data)
       continue;
     epoll_task *task = to_write;
     to_write = to_write->next;
     free(task);
     pthread_mutex_unlock(&write_lock);
     pthread_mutex_lock(&msg_lock);
-    printf("msg: %s\n", cli_data->pkt->data);
-    if(!strcmp(cli_data->pkt->dst, server_name)){
-      if(send_to_all(cli_data->pkt))
+    printf("msg: %s\n", msg_data->pkt->data);
+    if(!strcmp(msg_data->pkt->dst, server_name)){
+      if(send_to_all(msg_data->pkt))
         printf("error broadcasting message\n");
       pthread_mutex_unlock(&msg_lock);
-      free(cli_data); // Don't need after message successfully sent
+      free(msg_data); // Don't need after message successfully sent
       continue;
     }
 
-    fd = get_clientfd(cli_data->pkt->dst);
-    if(send_msg(cli_data->pkt, fd)) 
-      printf("error sending msg %s from %s to %s\n", cli_data->pkt->data, cli_data->pkt->src, cli_data->pkt->dst);
+    fd = get_clientfd(msg_data->pkt->dst);
+    if(send_msg(msg_data->pkt, fd)) 
+      printf("error sending msg %s from %s to %s\n", msg_data->pkt->data, msg_data->pkt->src, msg_data->pkt->dst);
     pthread_mutex_unlock(&msg_lock);
-    free(cli_data);
+    free(msg_data);
   }
   printf("write thread shutting down...\n");
-  if(cli_data) free(cli_data);
+  if(msg_data) free(msg_data);
   return 0;
 }
 

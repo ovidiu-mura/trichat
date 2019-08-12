@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
       struct cls_pkt cls;
       cls.type = CLS;
       cls.id = 1;
-      strcpy(cls.src, "client");
+      strcpy(cls.src, connection.username);
       strcpy(cls.dst, "server");
       char *serd = ser_data(&cls, CLS);
       char *hzcls = hide_zeros((unsigned char*)serd);
