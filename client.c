@@ -1,5 +1,5 @@
 #include "libs.h"
-
+#include <termios.h>
 typedef struct connection_info
 {
 	int clientSocket;
@@ -59,11 +59,7 @@ int main(int argc, char *argv[])
   int nn = recv(connection.clientSocket, buffer, 1024, 0);
   unsigned char *un = (unsigned char*)unhide_zeros((unsigned char *)buffer);
   printf("received %d bytes, %02x\n", nn, un[0]);
-<<<<<<< HEAD
-  if(un[0] == 0x02)
-=======
   if(un[0] == 0x2)
->>>>>>> origin/alex
   {
     printf("[+]Connected to Server.\n");
   } else {
@@ -88,13 +84,20 @@ int main(int argc, char *argv[])
   int msg_start = 0;
   bool isExit = false;
   char ttmp[20];
-
+  int space_count = 0;
   while(1){
     read(STDIN_FILENO, buffer, 1024);
     int i = 0;
     if(buffer[0] == '@'){
       while(buffer[i] != ' ')
+      {
         ++i;
+	space_count += 1;
+	if(buffer[i] == '\n')
+	  break;
+      }
+      if(space_count == 0)
+        continue;
       strncpy(ttmp, buffer, i);
       ttmp[i] = '\0';
       strcpy(pkt_3.dst, &ttmp[1]);
@@ -178,12 +181,12 @@ void INThandler(int sig)
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
 	get_userName(connection->username); 
-/*	get_password(connection->password);
+	get_password(connection->password);
 	if(!validate_username_password(connection->username,connection->password))
 	{
 		fprintf(stderr,"Invalid username or password\n");
 		_exit(EXIT_FAILURE);
-	}*/
+	} 
 	connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(connection->clientSocket < 0){
 		perror("[-]Error in connection.\n");
@@ -206,20 +209,53 @@ void connect_to_server(connection_info * connection, char *serverAddr,char *port
 void get_userName(char *username)
 {
 	char *str= "Enter a username: ";
+  int i = 0;
+
 	write(STDOUT_FILENO,str,strlen(str));
 	read(STDIN_FILENO,username,20);
+  while(username[i] != '\n')
+    ++i;
+  username[i] = '\0';
+  
 	if(strlen(username)>20){
 		fprintf(stderr,"username must be 20 characters or less.\n");
 		memset(username, 0, 20);
 		get_userName(username);
 	}
 }
+// terminal io extended from 
+//https://stackoverflow.com/questions/1754004
 void get_password(char *password)
 {
+	char *in = password;
+        struct termios  tty_orig;
+        char c;
+        tcgetattr( STDIN_FILENO, &tty_orig );
+        struct termios  tty_work = tty_orig;
+	
 	char *str = "Enter your password: ";
 	write(STDOUT_FILENO,str,strlen(str));
-	read(STDIN_FILENO,password,20);
+
+	tty_work.c_lflag &= ~( ECHO | ICANON );  // | ISIG );
+        tty_work.c_cc[ VMIN ]  = 1;
+        tty_work.c_cc[ VTIME ] = 0;
+        tcsetattr( STDIN_FILENO, TCSAFLUSH, &tty_work );
 	
+	while (1) {
+                if (read(STDIN_FILENO, &c, sizeof c) > 0) {
+                        if ('\n' == c) {
+                                break;
+                        }
+                        *in++ = c;
+                        write(STDOUT_FILENO, "*", 1);
+                }
+        }
+
+        tcsetattr( STDIN_FILENO, TCSAFLUSH, &tty_orig );
+
+        *in = '\0';
+         fputc('\n', stdout);
+
 	if(strlen(password)>20){
 		fprintf(stderr,"password must be 20 characters or less.\n");
 		memset(password, 0, 20);
@@ -239,15 +275,14 @@ bool validate_username_password(char *username,char *password)
        
         //Convert SHA1 byte into hex
         for (int i = 0; i < strlen((const char *)hashuserpass)-1; i++){
-              ptr += sprintf (ptr, "%02x", hashuserpass[i]);
-	    
+              ptr += sprintf (ptr, "%02x", hashuserpass[i]);   
          } 
 	 // convert to loser case
 	 for(int i=0;i<40;i++)
 	 {
 		 output[i]=tolower(output[i]);
 	 }
-	
+
 	// open password file and comapre username and password
 	FILE *fp = fopen("password.txt","r");
 	if ( fp != NULL )
@@ -255,14 +290,14 @@ bool validate_username_password(char *username,char *password)
          while (!feof(fp)) /* read till end of file */
          {
             fscanf (fp,"%s %s",uname,hashfilepass);
-
-	    if(strncmp(username,uname,strlen(uname)-1)==0)
+	    
+	    if(strncmp(username,uname,strlen(username)-1)==0)
 	    {
-	     if(strncmp((const char *)hashfilepass,output,strlen((const char *)hashfilepass)-1)==0)
+	     if(strncmp((const char *)hashfilepass,output,strlen(output)-1)==0)
 	     {
 		    printf("Access Granted\n");
-		    fclose(fp);
           	    return true;
+		    fclose(fp);
 	     }
             }
 	 }  
@@ -274,6 +309,7 @@ bool validate_username_password(char *username,char *password)
         }
 	return false;
 }
+
 /*function to check numeric input*/
 bool validate_input(char *a)
 {
