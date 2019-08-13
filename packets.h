@@ -45,3 +45,9 @@ char* hide_zeros(unsigned char*);
 char* unhide_zeros(unsigned char*);
 
 void create_daemon();
+void sigusr1();
+void *create_sm(size_t);
+
+char *ptr;
+int *shmp;
+int shmid;
