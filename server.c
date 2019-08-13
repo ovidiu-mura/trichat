@@ -335,22 +335,6 @@ int get_clientfd(char *user_to_find)
   return -1;
 }
 
-int is_valid_fd(int fd)
-{
-  if(fd < 0){
-    printf("invalid fd %d\n", fd);
-    return -1;
-  }
-
-  for(int i = 0; i < MAXUSERS; ++i){
-    if(clients[i].fd == fd)
-      return clients[i].online;
-  }
-
-  printf("invalid fd %d\n", fd);
-  return -1;
-}
-
 void start_log_daemon()
 {
   ptr = create_sm(1024);
@@ -363,15 +347,11 @@ void start_log_daemon()
   {
     create_daemon();
     shmp[1] = 33333;
-//    exit(2);
   }
   while(shmp[1] != 33333);
-  printf("shmp: %d\n", shmp[1]);
-//  strcpy(ptr, "new shared text");
   kill(shmp[2], SIGUSR1);
   pid_t pd = shmp[2];
   wait(&pd);
-  printf("daemon pid: %d", shmp[2]);
 }
 
 void server_log(char *msg)
@@ -379,7 +359,6 @@ void server_log(char *msg)
   strncpy(ptr, msg, strlen(msg));
   ptr[strlen(msg)] = '\0';
   kill(shmp[2], SIGUSR1);
-  printf("ptr: %s\n", ptr);
 }
 
 void stop_log_daemon()
