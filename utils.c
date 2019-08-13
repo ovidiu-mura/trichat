@@ -193,23 +193,22 @@ void create_daemon()
 {
     pid_t pid;
 
-    /* Fork off the parent process */
+    /* fork the parent process */
     pid = fork();
 
-    /* Check if error occurred in chld */
+    /* check if error occurred in child */
     if (pid < 0)
         exit(EXIT_FAILURE);
 
-    /* Success: Let the parent terminate */
+    /* the parent terminate */
     if (pid > 0)
         exit(EXIT_SUCCESS);
 
-    /* On success: The child process becomes session leader */
+    /* the child process becomes session leader */
     if (setsid() < 0)
         exit(EXIT_FAILURE);
 
-    /* Catch, ignore and handle signals */
-    //TODO: Implement a working signal handler */
+    /* catch, ignore and handle signals */
     struct sigaction act;
     sigemptyset(&act.sa_mask);
     act.sa_flags = 0;
@@ -219,22 +218,21 @@ void create_daemon()
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
-    /* Fork off for the second time*/
+    /* fork second time*/
     pid = fork();
 
-    /* An error occurred */
+    /* check if error occurred */
     if (pid < 0)
         exit(EXIT_FAILURE);
 
-    /* Success: Let the parent terminate */
+    /* the parent terminate */
     if (pid > 0)
         exit(EXIT_SUCCESS);
 
-    /* Set new file permissions */
+    /* set file permissions */
     umask(0);
 
     /* Change the working directory to the root directory */
-    /* or another appropriated directory */
     chdir("/");
 
     /* Close all open file descriptors */
@@ -244,7 +242,7 @@ void create_daemon()
         close (x);
     }
     setlogmask(LOG_UPTO(LOG_DEBUG));
-    /* Open the log file */
+    /* Open the log file, /var/log/messages.local.log */
     openlog ("trichat", LOG_CONS|LOG_PID|LOG_NDELAY, LOG_LOCAL1);
     pid = getpid();
     shmp[1] = 33333;
