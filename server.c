@@ -25,14 +25,6 @@ void* do_writes(void *arg);
 void* thr_cleanup(unsigned char* d, int fd);
 char* get_user_list();
 
-typedef struct pthread_arg_t 
-{
-  int sockfd;
-  struct sockaddr_in newAddr;
-  char *user; 
-  int fd;
-} pthread_arg_t;
-
 // To create array of clients with relevant info
 typedef struct client_info {
   int fd;
@@ -114,8 +106,8 @@ int set_nonblocking(int fd)
   }
   ev.data.fd = fd;
   ev.events = EPOLLIN | EPOLLET;
-  if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0){ // Add to interest list for reading:w
-    perror("epoll_ctl error: 455");
+  if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0){ // Add to interest list for reading
+    perror("epoll_ctl error");
     return -1;
   }
   return 0;
@@ -212,11 +204,26 @@ int send_to_all(struct data_pkt *pkt)
       ev.data.fd = clients[i].fd;
       ev.events = EPOLLIN | EPOLLET;
       if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
-        perror("epoll_ctl error: 192");
+        perror("epoll_ctl error");
     }
   }
   return 0;
 } 
+
+int is_valid_fd(int fd)
+{
+  if(fd < 0){
+    return -1;
+  }
+
+  for(int i = 0; i < MAXUSERS; ++i){
+    if(!(clients+i)) break;
+    if(clients[i].fd == fd)
+      return clients[i].online;
+  }
+
+  return -1;
+}
 
 // Sends a message to an individual client matching the send_to_fd argument
 int send_msg(struct data_pkt *pkt, int send_to_fd)
@@ -230,14 +237,23 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
   char msg[1024];
   if(!pkt || !pkt->dst || !pkt->data)
     return -1;
+  
+  memset(msg, '\0', 1024);
+  if(!is_valid_fd(send_to_fd)){ // Client to send to has disconnected
+    send_to_fd = get_clientfd(pkt->src);
+    sprintf(msg, "Could not send %s -- User %s has exited", pkt->data, pkt->dst);
+    strcpy(pkt->dst, pkt->src);
+    strcpy(pkt->src, server_name);
+  }
+  else{
+    strncpy(msg, pkt->src, strlen(pkt->src));
+    strcat(msg, ": ");
+    strcat(msg, pkt->data);
+  }
   for(int i = 0; i < MAXUSERS; ++i) {
     if(!(clients+i)) break; // avoids seg fault
     if(!clients[i].online) continue;
     if(!strncmp(pkt->dst, clients[i].name, strlen(pkt->dst))){
-      memset(msg, '\0', 1024);
-      strncpy(msg, pkt->src, strlen(pkt->src));
-      strcat(msg, ": ");
-      strcat(msg, pkt->data);
       struct data_pkt msg_pkt;
       msg_pkt.type = DATA;
       strcpy(msg_pkt.src, pkt->src);
@@ -254,7 +270,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
         ev.data.fd = send_to_fd;
         ev.events = EPOLLIN | EPOLLET;
         if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, send_to_fd, &ev) < 0){
-          perror("epoll_ctl error: 234");
+          perror("epoll_ctl error");
           return -1;
         }
         return 0;
@@ -312,8 +328,7 @@ int get_clientfd(char *user_to_find)
 
   for(int i = 0; i < MAXUSERS; ++i){
     if(!(clients+i)) break; 
-    if(!clients[i].online) continue;
-    if(!strncmp(user_to_find, clients[i].name, strlen(user_to_find)) && clients[i].online)
+    if(!strncmp(user_to_find, clients[i].name, strlen(user_to_find)))
       return clients[i].fd;
   }
 
@@ -532,9 +547,8 @@ void* accept_conn(void *arg)
         pthread_mutex_unlock(&read_lock);
       } 
       // fd is ready to be written to
-      else if(events[i].events & EPOLLOUT && is_valid_fd(events[i].data.fd)){
-        if(!events[i].data.ptr)
-          continue;
+      else if(events[i].events & EPOLLOUT){
+        if(!events[i].data.ptr) continue;
         epoll_task *task = malloc(sizeof(struct epoll_task));
         task->data.ptr = (struct msg_data*)events[i].data.ptr;
         task->next = NULL;
@@ -644,15 +658,22 @@ void* do_reads(void *arg)
       }
       if(strcmp(msg_data->pkt->dst, server_name)){ // Message to a particular client
         msg_data->fd = get_clientfd(msg_data->pkt->dst);
-        if(fd == -1){
-          printf("User %s not available", msg_data->pkt->dst);
+        if(!is_valid_fd(msg_data->fd)){
+          msg_data->fd = get_clientfd(msg_data->pkt->src);
+          char msg[1024];
+          sprintf(msg, "Could not send %s -- User %s has exited", msg_data->pkt->data, msg_data->pkt->dst);
+          strcpy(msg_data->pkt->data, msg);
+          strcpy(msg_data->pkt->dst, msg_data->pkt->src);
+          strcpy(msg_data->pkt->src, server_name);
+        }
+        if(msg_data->fd == -1){
           free(msg_data);
           continue;
         }
         ev.data.ptr = msg_data; // Contains message packet
         ev.events = EPOLLOUT | EPOLLET;
         if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, msg_data->fd, &ev) < 0) // Change fd for destination client from read list to write list
-          perror("epoll_ctl error:");
+          perror("epoll_ctl error");
       }
       else {   // Message to all
         ev.data.ptr = msg_data;
@@ -661,7 +682,7 @@ void* do_reads(void *arg)
           if(!clients[i].online) continue;
           if(!strcmp(clients[i].name, msg_data->pkt->src)) {
             if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
-              perror("epoll_ctl error:");
+              perror("epoll_ctl error");
           }
         }
       }
