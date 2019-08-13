@@ -24,4 +24,5 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include <errno.h>
+#include<termios.h>
 #include "packets.h"

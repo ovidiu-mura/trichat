@@ -1,5 +1,5 @@
 #include "libs.h"
-#include <termios.h>
+
 typedef struct connection_info
 {
 	int clientSocket;
@@ -32,13 +32,25 @@ int main(int argc, char *argv[])
   pthread_mutex_init(&lock, 0);
   connection_info  connection;
   signal(SIGINT,INThandler);
-  if (argc != 3)
+  if (argc < 3)
   {
     fprintf (stderr, "Usage: %s <IP> <port>\n", argv[0]);
     exit (EXIT_FAILURE);
   }
-  if (validate_input(argv[2]))
+  if (validate_ip(argv[1]) && validate_input(argv[2]))
+  {
+    get_userName(connection.username);
+    if(argc==4 && strcmp(argv[3],"-s")==0)
+    {
+	get_password(connection.password);
+        if(!validate_username_password(connection.username,connection.password))
+	{
+		fprintf(stderr,"Invalid username or password\n");
+		_exit(EXIT_FAILURE);
+	}
+    }
     connect_to_server(&connection,argv[1],argv[2]);
+  }
   else {
     fprintf(stderr,"Invalid input");
     exit(EXIT_FAILURE);
@@ -179,13 +191,9 @@ void INThandler(int sig)
 
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
-	get_userName(connection->username); 
-	get_password(connection->password);
-	if(!validate_username_password(connection->username,connection->password))
-	{
-		fprintf(stderr,"Invalid username or password\n");
-		_exit(EXIT_FAILURE);
-	} 
+//	get_userName(connection->username); 
+//	get_password(connection->password);
+	
 	connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(connection->clientSocket < 0){
 		perror("[-]Error in connection.\n");
