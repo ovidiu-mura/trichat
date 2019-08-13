@@ -245,8 +245,8 @@ void create_daemon()
     /* Open the log file, /var/log/messages.local.log */
     openlog ("trichat", LOG_CONS|LOG_PID|LOG_NDELAY, LOG_LOCAL1);
     pid = getpid();
-    shmp[1] = 33333;
     shmp[2] = pid;
+    shmp[1] = 33333;
     while(1)
       pause();
 }

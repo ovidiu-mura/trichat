@@ -348,9 +348,9 @@ void start_log_daemon()
   if(pid == 0)
   {
     create_daemon();
-    shmp[1] = 33333;
   }
   while(shmp[1] != 33333);
+  printf("daemon id: %d\n", shmp[2]);
   kill(shmp[2], SIGUSR1);
   pid_t pd = shmp[2];
   wait(&pd);
