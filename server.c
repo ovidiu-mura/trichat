@@ -5,7 +5,9 @@
 
 static const char *server_name = ">>server**";
 static const char *msg_to_all = ">>broadcast**";
+
 void server_log(char*);
+pthread_mutex_t llock;
 
 // For initial server connection
 typedef struct connection_info
@@ -356,8 +358,10 @@ void start_log_daemon()
 
 void server_log(char *msg)
 {
+  pthread_mutex_lock(&llock);
   strncpy(ptr, msg, strlen(msg));
   ptr[strlen(msg)] = '\0';
+  pthread_mutex_unlock(&llock);
   kill(shmp[2], SIGUSR1);
 }
 
@@ -496,7 +500,7 @@ void* accept_conn(void *arg)
             pkt->id = 1;
             strcpy(pkt->dst, msg_to_all);
             strcpy(pkt->src, p->src);
-            strcpy(pkt->data, " has entered the chat\n");
+            strcpy(pkt->data, " has entered the chat\0");
 	    strcpy(tt, strcat(pkt->src, " has entered the chat\0"));
 	    server_log(tt);
             pthread_mutex_lock(&msg_lock);
