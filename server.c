@@ -5,6 +5,7 @@
 
 static const char *server_name = ">>server**";
 static const char *msg_to_all = ">>broadcast**";
+void server_log(char*);
 
 // For initial server connection
 typedef struct connection_info
@@ -225,6 +226,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
     return -1;
   }
   int n;
+  char tmp[500];
   char msg[1024];
   if(!pkt || !pkt->dst || !pkt->data)
     return -1;
@@ -246,6 +248,8 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
       char *data = hide_zeros((unsigned char*)u);
       n = send(send_to_fd, data, 1024, 0);
       printf("%s sent to %s\n", msg_pkt.data, msg_pkt.dst);
+      sprintf(tmp, "%s sent to %s", msg_pkt.data, msg_pkt.dst);
+      server_log(tmp);
       if(n > 0){
         ev.data.fd = send_to_fd;
         ev.events = EPOLLIN | EPOLLET;
@@ -256,6 +260,8 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
         return 0;
       }
       printf("error sending message to %s\n", msg_pkt.dst);
+      sprintf(tmp, "error sending message to %s", msg_pkt.dst);
+      server_log(tmp);
       return -1;
     }
   }
@@ -443,14 +449,14 @@ void* accept_conn(void *arg)
             close(fd);
           perror("error receiving init packet for new connection");
           continue;
-        }
-        else if(!n){
+        } else if(!n){
           close(fd);
           printf("client closed connection\n");
           continue;
         }
-
-        printf("bytes received %d\n", n);
+        char tt[50];
+        sprintf(tt, "first %d bytes received", n);
+	server_log(tt);
         memcpy(d, data, n);
         d[n] = '\0';
         u = unhide_zeros(d);
@@ -487,6 +493,9 @@ void* accept_conn(void *arg)
           free(user_list);
           int ret = new_user(p->src, fd, connection->serverAddr);
           if(!ret){
+	    char tt[150];
+	    sprintf(tt, "User %s has connected on fd %d", p->src, fd);
+	    server_log(tt);
             printf("User %s has connected on fd %d\n", p->src, fd); 
             struct data_pkt *pkt = malloc(sizeof(struct data_pkt));
             pkt->type = DATA;
@@ -494,6 +503,8 @@ void* accept_conn(void *arg)
             strcpy(pkt->dst, msg_to_all);
             strcpy(pkt->src, p->src);
             strcpy(pkt->data, " has entered the chat\n");
+	    strcpy(tt, strcat(pkt->src, " has entered the chat\0"));
+	    server_log(tt);
             pthread_mutex_lock(&msg_lock);
             send_to_all(pkt);
             free(pkt);
@@ -502,7 +513,7 @@ void* accept_conn(void *arg)
           /*  else if(ret == 1)
               continue;
           // PROMPT FOR ANOTHER NAME*/
-          else{
+          else {
             pthread_mutex_unlock(&lock);
             continue;
           }
@@ -532,14 +543,17 @@ void* accept_conn(void *arg)
         pthread_cond_broadcast(&write_cond);
         pthread_mutex_unlock(&write_lock);
       }  
-      else
+      else {
         perror("something went wrong");
+	server_log("something went wrong");
+      }
     }
   }
 
   pthread_cancel(read_thr);
   pthread_cancel(write_thr);
   printf("Server exiting...\n");
+  server_log("Server exiting...");
   return thr_cleanup(d, connection->sockfd);
 }
 
@@ -554,6 +568,9 @@ void do_on_exit(int fd)
       clients[i].online = 0;
       close(clients[i].fd);
       printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
+      char te[100];
+      sprintf(te, "Disconnected %s:%d", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
+      server_log(te);
       --num_users;
       if(!num_users) --num_users; // If only active user, decrement to -1 so server exits
       pkt->type = DATA;
@@ -561,6 +578,8 @@ void do_on_exit(int fd)
       strcpy(pkt->dst, msg_to_all);
       strcpy(pkt->src, clients[i].name);
       strcpy(pkt->data, " has exited the chat\n");
+      strcpy(te, strcat(pkt->src, " has exited the chat\0"));
+      server_log(te);
       pthread_mutex_lock(&msg_lock);
       send_to_all(pkt);
       free(pkt);
@@ -595,8 +614,7 @@ void* do_reads(void *arg)
         close(fd);
       printf("error reading from fd %d\n", fd);
       continue;
-    }
-    else if(!n){
+    } else if(!n){
       printf("client on fd %d closed connection\n", fd);
       pthread_mutex_lock(&lock);
       do_on_exit(fd);
@@ -658,6 +676,7 @@ void* do_reads(void *arg)
     bzero(data, sizeof(data));
   }
   printf("read thread shutting down...\n");
+  server_log("read thread shutting down...\0");
   if(msg_data) free(msg_data);
   if(d) free(d);
   return 0;
@@ -742,7 +761,7 @@ void startup(connection_info * connection,int port)
   if(listen(connection->sockfd, MAXPENDING)==0)
   {
     printf("[+]Listening...\n");
-  }else
+  } else
   {
     printf("[-]Error in binding.\n");
   }
