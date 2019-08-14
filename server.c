@@ -6,6 +6,9 @@
 static const char *server_name = ">>server**";
 static const char *msg_to_all = ">>broadcast**";
 
+void server_log(char*);
+pthread_mutex_t llock;
+
 // For initial server connection
 typedef struct connection_info
 {
@@ -115,7 +118,6 @@ int set_nonblocking(int fd)
 // Adds a new user, malloc'ing and populating relevant fields and incremented number of connected users
 int new_user(char *name, int fd, struct sockaddr_in cAddr)
 {
-//  printf("%s:%d\n", inet_ntoa(cAddr.sin_addr), ntohs(cAddr.sin_port));
   if(pthread_mutex_trylock(&lock) != EBUSY){
     printf("new_user must be holding lock\n");
     return -1;
@@ -167,7 +169,6 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
   printf("New client: %s fd: %d\n", clients[num_users].name, clients[num_users].fd);
  
   memcpy(&clients[num_users].addr, &cAddr, sizeof(cAddr));
-  printf("%s:%d\n", inet_ntoa(cAddr.sin_addr), ntohs(cAddr.sin_port));
   ++num_users;
   return 0;
 }
@@ -234,6 +235,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
     return -1;
   }
   int n;
+  char tmp[500];
   char msg[1024];
   if(!pkt || !pkt->dst || !pkt->data)
     return -1;
@@ -264,6 +266,8 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
       char *data = hide_zeros((unsigned char*)u);
       n = send(send_to_fd, data, 1024, 0);
       printf("%s sent to %s\n", msg_pkt.data, msg_pkt.dst);
+      sprintf(tmp, "%s sent to %s", msg_pkt.data, msg_pkt.dst);
+      server_log(tmp);
       if(n > 0){
         ev.data.fd = send_to_fd;
         ev.events = EPOLLIN | EPOLLET;
@@ -274,6 +278,8 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
         return 0;
       }
       printf("error sending message to %s\n", msg_pkt.dst);
+      sprintf(tmp, "error sending message to %s", msg_pkt.dst);
+      server_log(tmp);
       return -1;
     }
   }
@@ -331,8 +337,45 @@ int get_clientfd(char *user_to_find)
   return -1;
 }
 
+void start_log_daemon()
+{
+  ptr = create_sm(1024);
+  strcpy(ptr, "trichat server started");
+  shmid = shmget(0x1234, 20, 0644|IPC_CREAT);
+  shmp = shmat(shmid, NULL, 0);
+  shmp[1] = 55555;
+  pid_t pid = fork();
+  if(pid == 0)
+  {
+    create_daemon();
+  }
+  while(shmp[1] != 33333);
+  printf("daemon id: %d\n", shmp[2]);
+  kill(shmp[2], SIGUSR1);
+  pid_t pd = shmp[2];
+  wait(&pd);
+}
+
+void server_log(char *msg)
+{
+  pthread_mutex_lock(&llock);
+  strncpy(ptr, msg, strlen(msg));
+  ptr[strlen(msg)] = '\0';
+  pthread_mutex_unlock(&llock);
+  kill(shmp[2], SIGUSR1);
+}
+
+void stop_log_daemon()
+{
+  kill(shmp[2], SIGKILL);
+  shmdt(shmp);
+  shmctl(shmid, IPC_RMID, 0);
+  munmap(ptr, 1024);
+}
+
 int main(int argc, char *argv[])
 {
+  start_log_daemon();
   connection_info connection;
 
   signal(SIGINT,INThandler);
@@ -361,6 +404,7 @@ int main(int argc, char *argv[])
   pthread_join(read_thr, 0);
   pthread_join(write_thr, 0);
   printf("Server has disconnected\n");
+  stop_log_daemon();
   exit(EXIT_SUCCESS);
 }
 
@@ -387,7 +431,12 @@ void* accept_conn(void *arg)
       if(events[i].data.fd == connection->sockfd) {
         len = sizeof(connection->serverAddr);
         fd = accept(connection->sockfd, (struct sockaddr*)&connection->serverAddr, &len);
-	printf("%s:%d\n", inet_ntoa((connection->serverAddr).sin_addr), ntohs((connection->serverAddr).sin_port));
+	char *ipv4 = inet_ntoa((connection->serverAddr).sin_addr);
+	char por[10];
+	sprintf(por, "%d", ntohs((connection->serverAddr).sin_port));
+	char *msg = strcat(strcat(ipv4, ":"), por);
+	msg[21] = '\0';
+	server_log(msg);
         if(fd == EAGAIN){
           printf("already added %d", fd);
           continue;
@@ -398,14 +447,14 @@ void* accept_conn(void *arg)
             close(fd);
           perror("error receiving init packet for new connection");
           continue;
-        }
-        else if(!n){
+        } else if(!n){
           close(fd);
           printf("client closed connection\n");
           continue;
         }
-
-        printf("bytes received %d\n", n);
+        char tt[50];
+        sprintf(tt, "first %d bytes received", n);
+	server_log(tt);
         memcpy(d, data, n);
         d[n] = '\0';
         u = unhide_zeros(d);
@@ -442,13 +491,18 @@ void* accept_conn(void *arg)
           free(user_list);
           int ret = new_user(p->src, fd, connection->serverAddr);
           if(!ret){
+	    char tt[150];
+	    sprintf(tt, "User %s has connected on fd %d", p->src, fd);
+	    server_log(tt);
             printf("User %s has connected on fd %d\n", p->src, fd); 
             struct data_pkt *pkt = malloc(sizeof(struct data_pkt));
             pkt->type = DATA;
             pkt->id = 1;
             strcpy(pkt->dst, msg_to_all);
             strcpy(pkt->src, p->src);
-            strcpy(pkt->data, " has entered the chat\n");
+            strcpy(pkt->data, " has entered the chat\0");
+	    strcpy(tt, strcat(pkt->src, " has entered the chat\0"));
+	    server_log(tt);
             pthread_mutex_lock(&msg_lock);
             send_to_all(pkt);
             free(pkt);
@@ -457,7 +511,7 @@ void* accept_conn(void *arg)
           /*  else if(ret == 1)
               continue;
           // PROMPT FOR ANOTHER NAME*/
-          else{
+          else {
             pthread_mutex_unlock(&lock);
             continue;
           }
@@ -486,14 +540,17 @@ void* accept_conn(void *arg)
         pthread_cond_broadcast(&write_cond);
         pthread_mutex_unlock(&write_lock);
       }  
-      else
+      else {
         perror("something went wrong");
+	server_log("something went wrong");
+      }
     }
   }
 
   pthread_cancel(read_thr);
   pthread_cancel(write_thr);
   printf("Server exiting...\n");
+  server_log("Server exiting...");
   return thr_cleanup(d, connection->sockfd);
 }
 
@@ -508,6 +565,9 @@ void do_on_exit(int fd)
       clients[i].online = 0;
       close(clients[i].fd);
       printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
+      char te[100];
+      sprintf(te, "Disconnected %s:%d", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
+      server_log(te);
       --num_users;
       if(!num_users) --num_users; // If only active user, decrement to -1 so server exits
       pkt->type = DATA;
@@ -515,6 +575,8 @@ void do_on_exit(int fd)
       strcpy(pkt->dst, msg_to_all);
       strcpy(pkt->src, clients[i].name);
       strcpy(pkt->data, " has exited the chat\n");
+      strcpy(te, strcat(pkt->src, " has exited the chat\0"));
+      server_log(te);
       pthread_mutex_lock(&msg_lock);
       send_to_all(pkt);
       free(pkt);
@@ -549,8 +611,7 @@ void* do_reads(void *arg)
         close(fd);
       printf("error reading from fd %d\n", fd);
       continue;
-    }
-    else if(!n){
+    } else if(!n){
       printf("client on fd %d closed connection\n", fd);
       pthread_mutex_lock(&lock);
       do_on_exit(fd);
@@ -619,6 +680,7 @@ void* do_reads(void *arg)
     bzero(data, sizeof(data));
   }
   printf("read thread shutting down...\n");
+  server_log("read thread shutting down...\0");
   if(msg_data) free(msg_data);
   if(d) free(d);
   return 0;
@@ -703,7 +765,7 @@ void startup(connection_info * connection,int port)
   if(listen(connection->sockfd, MAXPENDING)==0)
   {
     printf("[+]Listening...\n");
-  }else
+  } else
   {
     printf("[-]Error in binding.\n");
   }

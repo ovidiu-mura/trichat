@@ -25,4 +25,10 @@
 #include <openssl/evp.h>
 #include <errno.h>
 #include<termios.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <syslog.h>
+#include <sys/wait.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include "packets.h"

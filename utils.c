@@ -183,55 +183,56 @@ char * unhide_zeros(unsigned char *ptr)
   return data;
 }
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <syslog.h>
+void kill_daemon()
+{
+  exit(0);
+}
 
 
 void create_daemon()
 {
     pid_t pid;
 
-    /* Fork off the parent process */
+    /* fork the parent process */
     pid = fork();
 
-    /* An error occurred */
+    /* check if error occurred in child */
     if (pid < 0)
         exit(EXIT_FAILURE);
 
-    /* Success: Let the parent terminate */
+    /* the parent terminate */
     if (pid > 0)
         exit(EXIT_SUCCESS);
 
-    /* On success: The child process becomes session leader */
+    /* the child process becomes session leader */
     if (setsid() < 0)
         exit(EXIT_FAILURE);
 
-    /* Catch, ignore and handle signals */
-    //TODO: Implement a working signal handler */
+    /* catch, ignore and handle signals */
+    struct sigaction act;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    act.sa_handler = sigusr1;
+    sigaction(SIGUSR1, &act, NULL);
+    signal(SIGKILL, kill_daemon);
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
-    /* Fork off for the second time*/
+    /* fork second time*/
     pid = fork();
 
-    /* An error occurred */
+    /* check if error occurred */
     if (pid < 0)
         exit(EXIT_FAILURE);
 
-    /* Success: Let the parent terminate */
+    /* the parent terminate */
     if (pid > 0)
         exit(EXIT_SUCCESS);
 
-    /* Set new file permissions */
+    /* set file permissions */
     umask(0);
 
     /* Change the working directory to the root directory */
-    /* or another appropriated directory */
     chdir("/");
 
     /* Close all open file descriptors */
@@ -240,14 +241,25 @@ void create_daemon()
     {
         close (x);
     }
-
-    /* Open the log file */
-    openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
+    setlogmask(LOG_UPTO(LOG_DEBUG));
+    /* Open the log file, /var/log/messages.local.log */
+    openlog ("trichat", LOG_CONS|LOG_PID|LOG_NDELAY, LOG_LOCAL1);
+    pid = getpid();
+    shmp[2] = pid;
+    shmp[1] = 33333;
+    while(1)
+      pause();
 }
 
+void *create_sm(size_t size)
+{
+  int prot = PROT_READ|PROT_WRITE;
+  int visible = MAP_ANONYMOUS|MAP_SHARED;
+  return mmap(NULL, size, prot, visible, -1, 0);
+}
 
-
-
-
-
+void sigusr1()
+{
+  syslog(LOG_INFO, "%s", ptr);
+}
 
