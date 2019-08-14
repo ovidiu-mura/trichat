@@ -288,15 +288,15 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
 }
 
 // Sends a message directly from the server to a client
-int server_to_client_msg(int fd, struct init_pkt *pkt, char *msg)
+int server_to_client_msg(int fd, char *msg, char *cli)
 {
-  if(!pkt || !msg || fd < 0)
+  if(!msg || fd < 0)
     return -1;
 
   struct data_pkt msg_pkt;
   msg_pkt.type = DATA;
-  strcpy(msg_pkt.src, p->dst);
-  strcpy(msg_pkt.dst, p->src);
+  strcpy(msg_pkt.src, server_name);
+  strcpy(msg_pkt.dst, cli);
   strcpy(msg_pkt.data, msg);
   msg_pkt.id = 1;
   char *u = ser_data(&msg_pkt, DATA);
@@ -413,7 +413,7 @@ int main(int argc, char *argv[])
 void* accept_conn(void *arg)
 {
   unsigned char *d = malloc(1024);
-  char *u;
+  char *u, *user_list;
   int n, fd;
   connection_info *connection = (struct connection_info*)arg;
   char data[1024];
@@ -480,9 +480,9 @@ void* accept_conn(void *arg)
             close(fd);
             continue;
           }
-          char *user_list;
+
           while(!(user_list = get_user_list())) ; // Only will return null if not holding lock, shouldn't happen
-          if(server_to_client_msg(fd, p, user_list)){
+          if(server_to_client_msg(fd, user_list, p->src)){
             free(user_list);
             pthread_mutex_unlock(&lock);
             printf("error sending message to client %s\n", p->src);
@@ -639,6 +639,23 @@ void* do_reads(void *arg)
         free(msg_data);
         continue;
       }
+
+      if(!strcmp(msg_data->pkt->data, ":users"))
+      {
+        char *user_list;
+        pthread_mutex_lock(&lock);
+        while(!(user_list = get_user_list())) ; // Only will return null if not holding lock, shouldn't happen
+        if(server_to_client_msg(fd, user_list, msg_data->pkt->src)){
+          free(user_list);
+          pthread_mutex_unlock(&lock);
+          printf("error sending message to client %s\n", msg_data->pkt->src);
+          continue;
+        } 
+        free(user_list);
+        pthread_mutex_unlock(&lock);
+        continue;
+      }
+
       if(strcmp(msg_data->pkt->dst, server_name)){ // Message to a particular client
         msg_data->fd = get_clientfd(msg_data->pkt->dst);
         if(!is_valid_fd(msg_data->fd)){
