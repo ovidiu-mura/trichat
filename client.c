@@ -268,7 +268,9 @@ bool validate_username_password(char *username,char *password)
         char uname[20];
         char output[60];
         char *ptr = &output[0];
-       	
+       	unsigned char hashfilepass[SHA_DIGEST_LENGTH];
+        unsigned char hashuserpass[SHA_DIGEST_LENGTH];
+
 	//calculate SHA1 of password
 	SHA1((unsigned char*)password,sizeof(password),hashuserpass);
        
