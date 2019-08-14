@@ -1,3 +1,11 @@
+/* CS510 - ALSP
+ * Team: Alex Davidoff, Kamakshi Nagar, Ovidiu Mura
+ * Date: 08/13/2019
+ *
+ * It defines the packets types and the structure. Also, it 
+ * contains the function signatures for util implementation and
+ * pointers to shared memory.
+ **/
 
 enum ptype {INIT=1, ACK=2, DATA=3, CLS=4};
 
@@ -33,7 +41,6 @@ struct cls_pkt
   char src[100];
   char dst[100];
 };
-
 
 char * ser_data(void *, char);
 char * deser_data(void *);

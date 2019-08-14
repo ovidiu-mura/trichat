@@ -1,3 +1,11 @@
+/* CS510 - ALSP
+ * Team: Alex Davidoff, Kamakshi Nagar, Ovidiu Mura
+ * Date: 08/13/2019
+ *
+ * Trichat client connects to the server and execute commands, send
+ * messages to the active online users.
+ * Start the client command: ./client <server ip> <port>
+ **/
 #include "libs.h"
 
 typedef struct connection_info

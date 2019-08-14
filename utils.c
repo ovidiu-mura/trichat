@@ -1,7 +1,18 @@
+/* CS510 - ALSP
+ * Team: Alex Davidoff, Kamakshi Nagar, Ovidiu Mura
+ * Date: 08/13/2019
+ *
+ * It implements serealize, de-serialize functionality the app
+ * to be able to send data on the connection. A daemon which 
+ * starts when the server starts and closes when the server terminates, 
+ * the daemon logs messages to the local syslog.
+ **/
+
 #include "libs.h"
 
 unsigned char key[512];
 
+// It serialize data for the packet type.
 char * ser_data(void *pkt, char tp)
 {
   char *ser;
@@ -55,6 +66,7 @@ char * ser_data(void *pkt, char tp)
   return ser;
 }
 
+// It de-serializes data.
 struct init_pkt* deser_init_pkt(char *ptr)
 {
   char *tmp = (char*)ptr;
@@ -67,6 +79,7 @@ struct init_pkt* deser_init_pkt(char *ptr)
   return p;
 }
 
+// It de-serializes the data packet.
 struct data_pkt* deser_data_pkt(char *ptr)
 {
   char *tmp = (char*)ptr;
@@ -79,6 +92,7 @@ struct data_pkt* deser_data_pkt(char *ptr)
   return p;
 }
 
+// It de-serializes the ack packet.
 struct ack_pkt* deser_ack_pkt(char *ptr)
 {
   char *tmp = (char*)ptr;
@@ -90,6 +104,7 @@ struct ack_pkt* deser_ack_pkt(char *ptr)
   return p;
 }
 
+// It de-serializes the cls packet.
 struct cls_pkt* deser_cls_pkt(char *ptr)
 {
   char *tmp = (char*)ptr;
@@ -101,6 +116,7 @@ struct cls_pkt* deser_cls_pkt(char *ptr)
   return p;
 }
 
+// It de-serializes the data packet.
 char * deser_data(void *pkt)
 {
   char *deser;
@@ -146,6 +162,7 @@ char * deser_data(void *pkt)
   return deser;
 }
 
+// It hides the 0x00 values in the packet if they appear in the first 512 bytes.
 char * hide_zeros(unsigned char *ptr)
 {
   for(int i=0;i<512; i++)
@@ -168,6 +185,7 @@ char * hide_zeros(unsigned char *ptr)
   return data;
 }
 
+// It unhides the 0x00 values in the packet if they appear in the first 512 bytes.
 char * unhide_zeros(unsigned char *ptr)
 {
   char *data = malloc(1024);
@@ -183,12 +201,13 @@ char * unhide_zeros(unsigned char *ptr)
   return data;
 }
 
+// It terminates the daemon.
 void kill_daemon()
 {
   exit(0);
 }
 
-
+// It creates a daemon to log the messages from shared memory to local syslog.
 void create_daemon()
 {
     pid_t pid;
@@ -251,6 +270,7 @@ void create_daemon()
       pause();
 }
 
+// It creates a shared memory of given size.
 void *create_sm(size_t size)
 {
   int prot = PROT_READ|PROT_WRITE;
@@ -258,6 +278,7 @@ void *create_sm(size_t size)
   return mmap(NULL, size, prot, visible, -1, 0);
 }
 
+// It writes a message to local syslog from shared memory.
 void sigusr1()
 {
   syslog(LOG_INFO, "%s", ptr);

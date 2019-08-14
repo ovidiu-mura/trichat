@@ -1,3 +1,16 @@
+/* CS510 - ALSP
+ * Team: Alex Davidoff, Kamakshi Nagar, Ovidiu Mura
+ * Date: 08/13/2019
+ *
+ * Trichat server openes an socket and starts listenning multiple clients.
+ * When the clients send data to server, the packets are processed and sent
+ * to the destination user using a different thread. Data received by each user fd
+ * is processed using advanced io technique 'epoll' which monitor the fds
+ * for data arrived in the ready fds. There is a daemon during the server
+ * lifetime which logs messages into the local syslog.
+ * Start the server command: ./server <port>
+ * */
+
 #include "libs.h"
 #define MAXPENDING 10
 #define MAXUSERS 20
@@ -212,6 +225,7 @@ int send_to_all(struct data_pkt *pkt)
   return 0;
 } 
 
+// It checks if a fd is valid
 int is_valid_fd(int fd)
 {
   if(fd < 0){

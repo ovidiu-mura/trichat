@@ -1,3 +1,10 @@
+/* CS510 - ALSP
+ * Team: Alex Davidoff, Kamakshi Nagar, Ovidiu Mura
+ * Date: 08/13/2019
+ *
+ * It contains the header files needed for the implementation.
+ **/
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
