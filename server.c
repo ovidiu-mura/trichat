@@ -826,6 +826,7 @@ char* get_user_list()
     if(!clients[i].online) continue;
     len += sprintf(user_list+len, "\n%d) %s", num++, clients[i].name);
   }
+  server_log(user_list);
   strcat(user_list, "\n");
   return user_list;
 }
