@@ -355,7 +355,7 @@ void start_log_daemon()
 {
   ptr = create_sm(1024);
   strcpy(ptr, "trichat server started");
-  key_t shk = ftok("README.md", 'b');
+  key_t shk = ftok("server.c", 'b');
   shmid = shmget(shk, 20, 0666|IPC_CREAT);
   shmp = shmat(shmid, NULL, 0);
   shmp[1] = 55555;
@@ -365,7 +365,6 @@ void start_log_daemon()
     create_daemon();
   }
   while(shmp[1] != 33333);
-//  printf("daemon id: %d\n", shmp[2]);
   kill(shmp[2], SIGUSR1);
   pid_t pd = shmp[2];
   wait(&pd);
@@ -373,10 +372,10 @@ void start_log_daemon()
 
 void server_log(char *msg)
 {
-//  pthread_mutex_lock(&llock);
+  pthread_mutex_lock(&llock);
   strncpy(ptr, msg, strlen(msg));
   ptr[strlen(msg)] = '\0';
-//  pthread_mutex_unlock(&llock);
+  pthread_mutex_unlock(&llock);
   kill(shmp[2], SIGUSR1);
 }
 
