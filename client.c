@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
       if(n == strlen(hzcls)){
         close(connection.clientSocket);
         printf("[-]Disconnected from server.\n");
+	exit(1);
       } else {
         printf("[-]Failed to disconnect from server properly.\n");
 	exit(-1);
