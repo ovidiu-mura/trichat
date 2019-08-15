@@ -53,7 +53,7 @@ Server attributes:
 - sleep all the threads
 - all the active users
 
-Packeges:
+Packeges (Ovi):
 - size 1K
 - file transfer
 - packet number
