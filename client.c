@@ -10,15 +10,16 @@
 
 typedef struct connection_info
 {
-	int clientSocket;
-	struct sockaddr_in serverAddr;
-	char username[20];
-	char password[20];
+  int clientSocket;
+  struct sockaddr_in serverAddr;
+  char username[20];
+  char password[20];
 } connection_info;
 
 typedef struct pthread_arg_t
 {
-	int sockfd;
+  connection_info* conn;
+  int sockfd;
 } pthread_arg_t;
 
 char buffer[1024];
@@ -187,152 +188,152 @@ void INThandler(int sig)
 
 void connect_to_server(connection_info * connection, char *serverAddr,char *port)
 {
-	get_userName(connection->username); 
-	connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if(connection->clientSocket < 0){
-		perror("[-]Error in connection.\n");
-		_exit(EXIT_FAILURE);
-	}
-	printf("[+]Client Socket is created.\n");
+  get_userName(connection->username); 
+  connection->clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+  if(connection->clientSocket < 0){
+    perror("[-]Error in connection.\n");
+    _exit(EXIT_FAILURE);
+  }
+  printf("[+]Client Socket is created.\n");
 
-	connection->serverAddr.sin_family = AF_INET;
-	connection->serverAddr.sin_port = htons(atoi(port));
-	connection->serverAddr.sin_addr.s_addr = inet_addr(serverAddr);
+  connection->serverAddr.sin_family = AF_INET;
+  connection->serverAddr.sin_port = htons(atoi(port));
+  connection->serverAddr.sin_addr.s_addr = inet_addr(serverAddr);
 
-	int ret = connect(connection->clientSocket, (struct sockaddr*)&connection->serverAddr,sizeof(connection->serverAddr));
-	if(ret<0){
-		perror("[-]Error in connection\n");
-		_exit(EXIT_FAILURE);
-	}
-	printf("[+]Connected to Server.\n");
+  int ret = connect(connection->clientSocket, (struct sockaddr*)&connection->serverAddr,sizeof(connection->serverAddr));
+  if(ret<0){
+    perror("[-]Error in connection\n");
+    _exit(EXIT_FAILURE);
+  }
+  printf("[+]Connected to Server.\n");
 }
 
 void get_userName(char *username)
 {
-	char *str= "Enter a username: ";
+  char *str= "Enter a username: ";
   int i = 0;
 
-	write(STDOUT_FILENO,str,strlen(str));
-	read(STDIN_FILENO,username,20);
+  write(STDOUT_FILENO,str,strlen(str));
+  read(STDIN_FILENO,username,20);
   while(username[i] != '\n')
     ++i;
   username[i] = '\0';
-  
-	if(strlen(username)>20){
-		fprintf(stderr,"username must be 20 characters or less.\n");
-		memset(username, 0, 20);
-		get_userName(username);
-	}
+
+  if(strlen(username)>20){
+    fprintf(stderr,"username must be 20 characters or less.\n");
+    memset(username, 0, 20);
+    get_userName(username);
+  }
 }
 
 /*void get_password(char *password)
+  {
+  char *str = "Enter your password: ";
+  write(STDOUT_FILENO,str,strlen(str));
+  read(STDIN_FILENO,password,20);
+
+  if(strlen(password)>20){
+  fprintf(stderr,"password must be 20 characters or less.\n");
+  memset(password, 0, 20);
+  get_password(password);
+  }
+  }
+
+  bool validate_username_password(char *username,char *password)
+  {
+  char uname[20];
+  char output[60];
+  char *ptr = &output[0];
+
+//calculate SHA1 of password
+SHA1((unsigned char*)password,sizeof(password),hashuserpass);
+
+//Convert SHA1 byte into hex
+for (int i = 0; i < strlen((const char *)hashuserpass)-1; i++){
+ptr += sprintf (ptr, "%02x", hashuserpass[i]);
+
+} 
+// convert to loser case
+for(int i=0;i<40;i++)
 {
-	char *str = "Enter your password: ";
-	write(STDOUT_FILENO,str,strlen(str));
-	read(STDIN_FILENO,password,20);
-	
-	if(strlen(password)>20){
-		fprintf(stderr,"password must be 20 characters or less.\n");
-		memset(password, 0, 20);
-		get_password(password);
-	}
+output[i]=tolower(output[i]);
 }
 
-bool validate_username_password(char *username,char *password)
+// open password file and comapre username and password
+FILE *fp = fopen("password.txt","r");
+if ( fp != NULL )
 {
-        char uname[20];
-        char output[60];
-        char *ptr = &output[0];
-       	
-	//calculate SHA1 of password
-	SHA1((unsigned char*)password,sizeof(password),hashuserpass);
-       
-        //Convert SHA1 byte into hex
-        for (int i = 0; i < strlen((const char *)hashuserpass)-1; i++){
-              ptr += sprintf (ptr, "%02x", hashuserpass[i]);
-	    
-         } 
-	 // convert to loser case
-	 for(int i=0;i<40;i++)
-	 {
-		 output[i]=tolower(output[i]);
-	 }
-	
-	// open password file and comapre username and password
-	FILE *fp = fopen("password.txt","r");
-	if ( fp != NULL )
-        {
-         while (!feof(fp))  read till end of file 
-         {
-            fscanf (fp,"%s %s",uname,hashfilepass);
+while (!feof(fp))  read till end of file 
+{
+fscanf (fp,"%s %s",uname,hashfilepass);
 
-	    if(strncmp(username,uname,strlen(uname)-1)==0)
-	    {
-	     if(strncmp((const char *)hashfilepass,output,strlen((const char *)hashfilepass)-1)==0)
-	     {
-		    printf("Access Granted\n");
-          	    return true;
-	     }
-            }
-	 }  
-         fclose ( fp);
-        }
-        else
-        {
-         perror ( "file error" ); 
-        }
-	return false;
+if(strncmp(username,uname,strlen(uname)-1)==0)
+{
+if(strncmp((const char *)hashfilepass,output,strlen((const char *)hashfilepass)-1)==0)
+{
+printf("Access Granted\n");
+return true;
+}
+}
+}  
+fclose ( fp);
+}
+else
+{
+perror ( "file error" ); 
+}
+return false;
 }*/
 
 /*function to check numeric input*/
 bool validate_input(char *a)
 {
-	int i=0;
-	if (a[i] == '-') i=1;//negative number	
-	for(;a[i]!='\0';i++)
-	{
-		if(!isdigit(a[i]))
-			return false;
-	}
-	return true;
+  int i=0;
+  if (a[i] == '-') i=1;//negative number	
+  for(;a[i]!='\0';i++)
+  {
+    if(!isdigit(a[i]))
+      return false;
+  }
+  return true;
 }
 
 /* function to check the valid command-line IP*/
 bool validate_ip(char *a)
 {
-	int num, dot = 0;
-	char *ptr;
+  int num, dot = 0;
+  char *ptr;
 
-	//checks if input is null or had more than one dot
-	if (a == NULL || strstr(a,"..")!=NULL)
-		return false;
+  //checks if input is null or had more than one dot
+  if (a == NULL || strstr(a,"..")!=NULL)
+    return false;
 
-	ptr = strtok(a, ".");
+  ptr = strtok(a, ".");
 
-	if (ptr == NULL)
-		return false;
+  if (ptr == NULL)
+    return false;
 
-	while (ptr) {
-		/* after parsing string, it must contain only digits */
-		if (!validate_input(ptr))
-			return false;
+  while (ptr) {
+    /* after parsing string, it must contain only digits */
+    if (!validate_input(ptr))
+      return false;
 
-		if(strlen(ptr)>3)
-			return false;
+    if(strlen(ptr)>3)
+      return false;
 
-		num = atoi(ptr);
+    num = atoi(ptr);
 
-		/* check for valid IP */
-		if (num >= 0 && num <= 255) {
-			/* parse remaining string */
-			ptr = strtok(NULL, ".");
-			if (ptr != NULL)
-				dot++;
-		} else
-			return false;
-	}
-	/* valid IP string must contain 3 dots */
-	if (dot !=3)
-		return false;
-	return true;
+    /* check for valid IP */
+    if (num >= 0 && num <= 255) {
+      /* parse remaining string */
+      ptr = strtok(NULL, ".");
+      if (ptr != NULL)
+        dot++;
+    } else
+      return false;
+  }
+  /* valid IP string must contain 3 dots */
+  if (dot !=3)
+    return false;
+  return true;
 }

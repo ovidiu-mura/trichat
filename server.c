@@ -39,6 +39,7 @@ void* do_reads(void *arg);
 void* do_writes(void *arg);
 void* thr_cleanup(unsigned char* d, int fd);
 char* get_user_list();
+int server_to_client_msg(int, char*, char*);
 
 // To create array of clients with relevant info
 typedef struct client_info {
@@ -143,17 +144,16 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
     clients = malloc(MAXUSERS*sizeof(struct client_info));
 
   if(num_users == MAXUSERS){ 
-    printf("Maximum users connected, cannot connect at this time\n");
+    server_to_client_msg(fd, "Maximum users connected, cannot connect at this time\n", name);
     return -1;
   }
 
   for(int i = 0; i < MAXUSERS; ++i){
     if(!(clients+i) || !clients[i].name) break;
     if(!strcmp(clients[i].name, name) && (get_clientfd(name) != -1)){
-      if(clients[i].online){
-        printf("%s already taken. Please enter another username: ", name);
-        return 0;
-      } else {
+      if(clients[i].online)
+        return -2; // Error code for username that is already taken
+      else {
         clients[i].online = 1;
         if(clients[i].fd != fd){ // if fd is different from before
           if(set_nonblocking(fd) == -1){
@@ -162,11 +162,11 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
           }
           clients[i].fd = fd;
         }
-        return i;
+        return 0;
       }
     }
   }
-  
+
   clients[num_users].name = malloc(strlen(name)+1);
   if(!clients[num_users].name){
     perror("malloc for new client name failed");
@@ -180,7 +180,7 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
   }
   clients[num_users].online = 1;
   printf("New client: %s fd: %d\n", clients[num_users].name, clients[num_users].fd);
- 
+
   memcpy(&clients[num_users].addr, &cAddr, sizeof(cAddr));
   ++num_users;
   return 0;
@@ -233,7 +233,7 @@ int is_valid_fd(int fd)
   }
 
   for(int i = 0; i < MAXUSERS; ++i){
-    if(!(clients+i)) break;
+    if(!(clients+i) || !clients[i].name) break;
     if(clients[i].fd == fd)
       return clients[i].online;
   }
@@ -253,7 +253,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
   char msg[1024];
   if(!pkt || !pkt->dst || !pkt->data)
     return -1;
-  
+
   memset(msg, '\0', 1024);
   if(!is_valid_fd(send_to_fd)){ // Client to send to has disconnected
     send_to_fd = get_clientfd(pkt->src);
@@ -343,8 +343,8 @@ int get_clientfd(char *user_to_find)
     return 0;
 
   for(int i = 0; i < MAXUSERS; ++i){
-    if(!(clients+i)) break; 
-    if(!strncmp(user_to_find, clients[i].name, strlen(user_to_find)))
+    if(!(clients+i) || !clients[i].name) break; 
+    if(!strcmp(user_to_find, clients[i].name))
       return clients[i].fd;
   }
 
@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
     pthread_cond_init(&read_cond, 0);
     pthread_cond_init(&write_cond, 0);
     startup(&connection,atoi(argv[1]));
-    pthread_create(&read_thr, 0, do_reads, 0);
+    pthread_create(&read_thr, 0, do_reads, (void*)&connection);
     pthread_create(&write_thr, 0, do_writes, 0);
     pthread_create(&connect_thr, 0, accept_conn, (void*)&connection);
   }
@@ -445,12 +445,12 @@ void* accept_conn(void *arg)
       if(events[i].data.fd == connection->sockfd) {
         len = sizeof(connection->serverAddr);
         fd = accept(connection->sockfd, (struct sockaddr*)&connection->serverAddr, &len);
-	char *ipv4 = inet_ntoa((connection->serverAddr).sin_addr);
-	char por[10];
-	sprintf(por, "%d", ntohs((connection->serverAddr).sin_port));
-	char *msg = strcat(strcat(ipv4, ":"), por);
-	msg[21] = '\0';
-	server_log(msg);
+        char *ipv4 = inet_ntoa((connection->serverAddr).sin_addr);
+        char por[10];
+        sprintf(por, "%d", ntohs((connection->serverAddr).sin_port));
+        char *msg = strcat(strcat(ipv4, ":"), por);
+        msg[21] = '\0';
+        server_log(msg);
         if(fd == EAGAIN){
           printf("already added %d", fd);
           continue;
@@ -468,12 +468,12 @@ void* accept_conn(void *arg)
         }
         char tt[50];
         sprintf(tt, "first %d bytes received", n);
-	server_log(tt);
+        server_log(tt);
         memcpy(d, data, n);
         d[n] = '\0';
         u = unhide_zeros(d);
 
-        // Init packet has been received, server sends back ack packet
+        // Init packet has been received, server verifies user can be added to list sends back ack packet
         if(u[0] == 0x01){
           p = deser_init_pkt(u);
           pthread_mutex_lock(&lock);
@@ -505,27 +505,19 @@ void* accept_conn(void *arg)
           free(user_list);
           int ret = new_user(p->src, fd, connection->serverAddr);
           if(!ret){
-	    char tt[150];
-	    sprintf(tt, "User %s has connected on fd %d", p->src, fd);
-	    server_log(tt);
             printf("User %s has connected on fd %d\n", p->src, fd); 
             struct data_pkt *pkt = malloc(sizeof(struct data_pkt));
             pkt->type = DATA;
             pkt->id = 1;
             strcpy(pkt->dst, msg_to_all);
             strcpy(pkt->src, p->src);
-            strcpy(pkt->data, " has entered the chat\0");
-	    strcpy(tt, strcat(pkt->src, " has entered the chat\0"));
-	    server_log(tt);
+            strcpy(pkt->data, " has entered the chat\n");
             pthread_mutex_lock(&msg_lock);
             send_to_all(pkt);
             free(pkt);
             pthread_mutex_unlock(&msg_lock);
           }
-          /*  else if(ret == 1)
-              continue;
-          // PROMPT FOR ANOTHER NAME*/
-          else {
+          else{
             pthread_mutex_unlock(&lock);
             continue;
           }
@@ -556,7 +548,7 @@ void* accept_conn(void *arg)
       }  
       else {
         perror("something went wrong");
-	server_log("something went wrong");
+        server_log("something went wrong");
       }
     }
   }
@@ -637,7 +629,7 @@ void* do_reads(void *arg)
     d[n] = '\0';
     u = unhide_zeros(d);
 
-    if(u[0] == 0x01) continue; // Already received init packet in connect_thr, shouldn't receive another
+    if(u[0] == 0x01) continue;
 
     msg_data = malloc(sizeof(struct msg_data));
     msg_data->fd = fd;
@@ -707,7 +699,7 @@ void* do_reads(void *arg)
       free(msg_data);
       pthread_mutex_unlock(&lock);
     }
-      
+
     bzero(data, sizeof(data));
   }
   printf("read thread shutting down...\n");
