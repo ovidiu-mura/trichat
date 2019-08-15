@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
   pthread_arg->sockfd = connection.clientSocket;
+  pthread_arg->conn = &connection;
   if(pthread_create(&recv_thread, 0, start_rtn, (void*)pthread_arg)){
     perror("creating new thread failed");
     free(pthread_arg);
@@ -170,6 +171,8 @@ void *start_rtn(void *arg)
     pthread_mutex_lock(&lock);
     char *temp = unhide_zeros((unsigned char*)buffer); 
     struct data_pkt *pkt = deser_data_pkt(temp);      
+    if(pkt->id == 2)                                  // If username needed to change
+      strcpy(pthread_arg->conn->username, pkt->dst);
     printf("%s\n", pkt->data);
     pthread_mutex_unlock(&lock);
     } else if(buffer[0] == 0x02)
@@ -178,6 +181,8 @@ void *start_rtn(void *arg)
     }
     bzero(buffer, sizeof(buffer));
   }
+  printf("client exiting..\n");
+  return 0;
 }
 
 void INThandler(int sig)

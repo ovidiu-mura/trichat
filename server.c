@@ -151,8 +151,12 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
   for(int i = 0; i < MAXUSERS; ++i){
     if(!(clients+i) || !clients[i].name) break;
     if(!strcmp(clients[i].name, name) && (get_clientfd(name) != -1)){
-      if(clients[i].online)
-        return -2; // Error code for username that is already taken
+      if(clients[i].online){
+        sprintf(name, "%s%d", name, num_users);
+        char msg[100];
+        sprintf(msg, "Username %s already exists. Logging you in as %s", clients[i].name, name);
+        server_to_client_msg(fd, msg, name);
+      }
       else {
         clients[i].online = 1;
         if(clients[i].fd != fd){ // if fd is different from before
@@ -312,7 +316,10 @@ int server_to_client_msg(int fd, char *msg, char *cli)
   strcpy(msg_pkt.src, server_name);
   strcpy(msg_pkt.dst, cli);
   strcpy(msg_pkt.data, msg);
-  msg_pkt.id = 1;
+  if(!strncmp(msg, "Username ", 9))
+    msg_pkt.id = 2;
+  else
+    msg_pkt.id = 1;
   char *u = ser_data(&msg_pkt, DATA);
   char *user_data = hide_zeros((unsigned char*)u);
   int n = send(fd, user_data, 1024, 0);
