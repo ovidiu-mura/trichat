@@ -66,8 +66,12 @@ int main(int argc, char *argv[])
   }
 
   int nn = recv(connection.clientSocket, buffer, 1024, 0);
+  if(nn < 0)
+  {
+    fprintf(stderr, "ack packet lost.");
+    exit(EXIT_FAILURE);
+  }
   unsigned char *un = (unsigned char*)unhide_zeros((unsigned char *)buffer);
-  printf("received %d bytes, %02x\n", nn, un[0]);
   if(un[0] == 0x2)
   {
     printf("[+]Connected to Server.\n");
@@ -211,7 +215,6 @@ void connect_to_server(connection_info * connection, char *serverAddr,char *port
     perror("[-]Error in connection\n");
     _exit(EXIT_FAILURE);
   }
-  printf("[+]Connected to Server.\n");
 }
 
 void get_userName(char *username)
