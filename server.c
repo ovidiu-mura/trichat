@@ -229,6 +229,9 @@ int send_to_all(struct data_pkt *pkt)
     if(!clients[i].online) continue;
     n = send(clients[i].fd, data, 1024, 0);
     printf("msg %s sent to %s\n", msg, clients[i].name);
+    char temp[100];
+    sprintf(temp, "msg %s sent to %s", msg, clients[i].name);
+    server_log(temp);
     if(n > 0){
       ev.data.fd = clients[i].fd;
       ev.events = EPOLLIN | EPOLLET;
