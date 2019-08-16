@@ -123,7 +123,7 @@ int set_nonblocking(int fd)
   ev.data.fd = fd;
   ev.events = EPOLLIN | EPOLLET;
   if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0){ // Add to interest list for reading
-    perror("epoll_ctl error");
+    perror("epoll_ctl error 126");
     return -1;
   }
   return 0;
@@ -132,6 +132,7 @@ int set_nonblocking(int fd)
 // Adds a new user, malloc'ing and populating relevant fields and incremented number of connected users
 int new_user(char *name, int fd, struct sockaddr_in cAddr)
 {
+  int i, j;
   if(pthread_mutex_trylock(&lock) != EBUSY){
     printf("new_user must be holding lock\n");
     return -1;
@@ -148,13 +149,22 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
     return -1;
   }
 
-  for(int i = 0; i < MAXUSERS; ++i){
+  for(i = 0; i < MAXUSERS; ++i){
     if(!(clients+i) || !clients[i].name) break;
     if(!strcmp(clients[i].name, name) && (get_clientfd(name) != -1)){
       if(clients[i].online){
-        sprintf(name, "%s%d", name, num_users);
         char msg[100];
-        sprintf(msg, "Username %s already exists. Logging you in as %s", clients[i].name, name);
+        sprintf(name, "%s%d", name, num_users);
+        sprintf(msg, "Username %s already exists.", clients[i].name);
+        for(j = i+1; j < MAXUSERS; ++j){
+          if(!(clients+j) || !clients[j].name) break;
+          if(!strcmp(clients[j].name, name) && (get_clientfd(name) != -1)){
+            if(clients[j].online)
+              sprintf(name, "%s%d", name, num_users);
+          }
+        }
+        strcat(msg, " Logging you in as ");
+        strcat(msg, name);
         server_to_client_msg(fd, msg, name);
       }
       else {
@@ -171,21 +181,21 @@ int new_user(char *name, int fd, struct sockaddr_in cAddr)
     }
   }
 
-  clients[num_users].name = malloc(strlen(name)+1);
-  if(!clients[num_users].name){
+  clients[i].name = malloc(strlen(name)+1);
+  if(!clients[i].name){
     perror("malloc for new client name failed");
     return -1;
   }
-  memcpy(clients[num_users].name, name, strlen(name));
-  clients[num_users].fd = fd;
+  memcpy(clients[i].name, name, strlen(name));
+  clients[i].fd = fd;
   if(set_nonblocking(fd) == -1){
     printf("error setting fd %d as nonblocking\n", fd);
     return -1;
   }
-  clients[num_users].online = 1;
-  printf("New client: %s fd: %d\n", clients[num_users].name, clients[num_users].fd);
+  clients[i].online = 1;
+  printf("New client: %s fd: %d\n", clients[i].name, clients[i].fd);
 
-  memcpy(&clients[num_users].addr, &cAddr, sizeof(cAddr));
+  memcpy(&clients[i].addr, &cAddr, sizeof(cAddr));
   ++num_users;
   return 0;
 }
@@ -215,7 +225,7 @@ int send_to_all(struct data_pkt *pkt)
   char *u = ser_data(&msg_pkt, DATA);
   char *data = hide_zeros((unsigned char*)u);
   for(int i = 0; i < MAXUSERS; ++i){
-    if(!(clients+i)) break; // Avoids seg fault
+    if(!(clients+i) || !clients[i].name) break; // Avoids seg fault
     if(!clients[i].online) continue;
     n = send(clients[i].fd, data, 1024, 0);
     printf("msg %s sent to %s\n", msg, clients[i].name);
@@ -223,7 +233,7 @@ int send_to_all(struct data_pkt *pkt)
       ev.data.fd = clients[i].fd;
       ev.events = EPOLLIN | EPOLLET;
       if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
-        perror("epoll_ctl error");
+        perror("epoll_ctl error 236");
     }
   }
   return 0;
@@ -271,7 +281,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
     strcat(msg, pkt->data);
   }
   for(int i = 0; i < MAXUSERS; ++i) {
-    if(!(clients+i)) break; // avoids seg fault
+    if(!(clients+i) || !clients[i].name) break; // avoids seg fault
     if(!clients[i].online) continue;
     if(!strncmp(pkt->dst, clients[i].name, strlen(pkt->dst))){
       struct data_pkt msg_pkt;
@@ -290,7 +300,7 @@ int send_msg(struct data_pkt *pkt, int send_to_fd)
         ev.data.fd = send_to_fd;
         ev.events = EPOLLIN | EPOLLET;
         if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, send_to_fd, &ev) < 0){
-          perror("epoll_ctl error");
+          perror("epoll_ctl error 303");
           return -1;
         }
         return 0;
@@ -577,6 +587,7 @@ void do_on_exit(int fd)
     if(clients[i].fd == fd){
       clients[i].online = 0;
       close(clients[i].fd);
+      clients[i].fd = -1;
       printf("Disconnected %s:%d\n", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
       char te[100];
       sprintf(te, "Disconnected %s:%d", inet_ntoa(clients[i].addr.sin_addr), ntohs(clients[i].addr.sin_port));
@@ -625,10 +636,10 @@ void* do_reads(void *arg)
       printf("error reading from fd %d\n", fd);
       continue;
     } else if(!n){
-      printf("client on fd %d closed connection\n", fd);
+ /*     printf("client on fd %d closed connection\n", fd);
       pthread_mutex_lock(&lock);
       do_on_exit(fd);
-      pthread_mutex_unlock(&lock);
+      pthread_mutex_unlock(&lock);*/
       continue;
     }
 
@@ -686,7 +697,7 @@ void* do_reads(void *arg)
         ev.data.ptr = msg_data; // Contains message packet
         ev.events = EPOLLOUT | EPOLLET;
         if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, msg_data->fd, &ev) < 0) // Change fd for destination client from read list to write list
-          perror("epoll_ctl error");
+          perror("epoll_ctl error 699");
       }
       else {   // Message to all
         ev.data.ptr = msg_data;
@@ -695,7 +706,7 @@ void* do_reads(void *arg)
           if(!clients[i].online) continue;
           if(!strcmp(clients[i].name, msg_data->pkt->src)) {
             if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev) < 0)
-              perror("epoll_ctl error");
+              perror("epoll_ctl error 708");
           }
         }
       }
@@ -805,6 +816,7 @@ void* thr_cleanup(unsigned char *d, int fd)
 {
   if(clients){
     for(int i = 0; i < MAXUSERS; ++i){
+      if(!(clients+i)) break;
       if(clients[i].name) free(clients[i].name);
       close(clients[i].fd);
     }
